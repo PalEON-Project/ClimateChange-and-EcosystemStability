@@ -1,0 +1,14 @@
+
+*.nc
+
+.history
+
+.Rhistory
+
+*.bz2
+
+*.docx
+
+*.pdf
+
+*.png
