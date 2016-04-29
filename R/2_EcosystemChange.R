@@ -14,19 +14,24 @@ rm(list=ls())
 library(car)
 library(ggplot2)
 library(mgcv)
-setwd("~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability")
+library(parallel)
+setwd("~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
+path.gamm.func <- "~/Desktop/Research/R_Functions/"  # Path to github repository of my GAMM helper functions: https://github.com/crollinson/R_Functions.git
+inputs    <- "~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/phase1a_output_variables/" # Path to my cleaned model output
 
-inputs    <- "~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/phase1a_output_variables"
-dat.out <- "Data/EcosysChange"
-fig.out <- "Figures/EcosysChange"
+mip.utils <- "~/Desktop/Research/PalEON_CR/MIP_Utils/" # Path to PalEON MIP Utility repository: https://github.com/PalEON-Project/MIP_Utils.git
+path.raw <- "~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/phase1a_model_output/" # Path to raw model output
 
-if(!dir.exists(dat.out)) dir.create(dat.out)
-if(!dir.exists(fig.out)) dir.create(fig.out)
+out.dir <- "Data/EcosysChange" # Path to where the analysis output should go
+fig.dir <- "Figures/EcosysChange" # Path to where figures should go
+
+if(!dir.exists(out.dir)) dir.create(out.dir)
+if(!dir.exists(fig.dir)) dir.create(fig.dir)
 # -------------------------------------------
 
 
 # -------------------------------------------
-# Reading in raw ecosystem model output
+# Reading in raw ecosystem model output & Adding the PFT info
 # -------------------------------------------
 ecosys <- read.csv(file.path(inputs, "PalEON_MIP_Yearly.csv"))
 ecosys$Model.Order <- recode(ecosys$Model, "'clm.bgc'='01'; 'clm.cn'='02'; 'ed2'='03'; 'ed2.lu'='04';  'jules.stat'='05'; 'jules.triffid'='06'; 'linkages'='07'; 'lpj.guess'='08'; 'lpj.wsl'='09'; 'sibcasa'='10'")
@@ -39,129 +44,210 @@ model.colors $Model.Order <- recode(model.colors$Model, "'CLM4.5-BGC'='01'; 'CLM
 levels(model.colors$Model.Order)[1:10] <- c("CLM-BGC", "CLM-CN", "ED2", "ED2-LU", "JULES-STATIC", "JULES-TRIFFID", "LINKAGES", "LPJ-GUESS", "LPJ-WSL", "SiBCASA")
 model.colors <- model.colors[order(model.colors$Model.Order),]
 model.colors
-# -------------------------------------------
 
-# -------------------------------------------
-# Detecting change in the models through time
-# -------------------------------------------
-# Exploratory Graphs
-{
-col.model <- paste(model.colors[model.colors$Model.Order %in% unique(ecosys$Model.Order),"color"])
 
-png(file.path(fig.out, "NEE_Sites_Smooth.png"), height=11, width=8.5, units="in", res=180)
-ggplot(data=ecosys) +
-  facet_wrap(~Site) +
-  geom_line(aes(x=Year, y=NEE, color=Model), size=0.25, alpha=0.3) +
-  geom_smooth(aes(x=Year, y=NEE, color=Model), se=F, size=1.5) +
-  scale_y_continuous(expand=c(0,0)) +
-  scale_x_continuous(expand=c(0,0)) +
-  scale_color_manual(values=col.model) +
-  theme_bw()
-dev.off()
+model.names <- data.frame(Model=unique(ecosys$Model), Model.Order=unique(ecosys$Model.Order))
 
-png(file.path(fig.out, "NPP_Sites_Smooth.png"), height=11, width=8.5, units="in", res=180)
-ggplot(data=ecosys) +
-  facet_wrap(~Site) +
-  geom_line(aes(x=Year, y=NPP, color=Model), size=0.25, alpha=0.3) +
-  geom_smooth(aes(x=Year, y=NPP, color=Model), se=F, size=1.5) +
-  scale_y_continuous(expand=c(0,0)) +
-  scale_x_continuous(expand=c(0,0)) +
-  scale_color_manual(values=col.model) +
-  theme_bw()
-dev.off()
+# ----------------------
+# Extracting the dominant PFT at each site for each model
+# ----------------------
+source(file.path(mip.utils, "Phase1_sites/extract_output_site.R"))
 
-png(file.path(fig.out, "AGB_Sites_Smooth.png"), height=11, width=8.5, units="in", res=180)
-ggplot(data=ecosys) +
-  facet_wrap(~Site) +
-  geom_line(aes(x=Year, y=AGB, color=Model), size=0.25, alpha=0.3) +
-  geom_smooth(aes(x=Year, y=AGB, color=Model), se=F, size=1.5) +
-  scale_y_continuous(expand=c(0,0)) +
-  scale_x_continuous(expand=c(0,0)) +
-  scale_color_manual(values=col.model) +
-  theme_bw()
-dev.off()
-
-png(file.path(fig.out, "Evergreen_Sites_Smooth.png"), height=11, width=8.5, units="in", res=180)
-ggplot(data=ecosys) +
-  facet_wrap(~Site) +
-  geom_line(aes(x=Year, y=Evergreen, color=Model), size=0.25, alpha=0.3) +
-  geom_smooth(aes(x=Year, y=Evergreen, color=Model), se=F, size=1.5) +
-  scale_y_continuous(expand=c(0,0)) +
-  scale_x_continuous(expand=c(0,0)) +
-  scale_color_manual(values=col.model) +
-  theme_bw()
-dev.off()
-
-png(file.path(fig.out, "SoilCarb_Sites_Smooth.png"), height=11, width=8.5, units="in", res=180)
-ggplot(data=ecosys) +
-  facet_wrap(~Site) +
-  geom_line(aes(x=Year, y=SoilCarb, color=Model), size=0.25, alpha=0.3) +
-  geom_smooth(aes(x=Year, y=SoilCarb, color=Model), se=F, size=1.5) +
-  scale_y_continuous(expand=c(0,0)) +
-  scale_x_continuous(expand=c(0,0)) +
-  scale_color_manual(values=col.model) +
-  theme_bw()
-dev.off()
+model.names$Model.Name <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2-LU'; 
+                                                     'clm.bgc'='CLM45BGC'; 'clm.cn'='CLM45CN'; 
+                                                     'lpj.wsl'='LPJ-WSL'; 'lpj.guess'='LPJ-GUESS'; 
+                                                     'jules.stat'='JULES'; 'jules.triffid'='JULES_TRIFFID';
+                                                     'linkages'='LINKAGES'; 'sibcasa'='SiBCASA'")
+model.names$Version    <- recode(model.names$Model, "'ed2'='v7'; 'ed2.lu'='v8'; 
+                                                     'clm.bgc'='v5.1'; 'clm.cn'='v3.1'; 
+                                                     'lpj.wsl'='v6'; 'lpj.guess'='v6'; 
+                                                     'jules.stat'='v2'; 'jules.triffid'='v1';
+                                                     'linkages'='v2.1'; 'sibcasa'='v1'")
+sites.all <- c("PHA", "PHO", "PUN", "PBL", "PDL", "PMB")
+for(m in unique(ecosys$Model)){
+  print(paste0(m))
+  if(m=="sibcasa") next
+  model.name <- model.names[model.names$Model==m, "Model.Name"]
+  pft.tmp <- extract.paleon.site(model=model.name, 
+                                 model.dir=file.path(path.raw, paste(model.name, model.names[model.names$Model==m, "Version"], sep=".")), 
+                                 sites=sites.all, 
+                                 vars="Fcomp")
+  if(m %in% c("jules.stat")){
+    pft.tmp <- extract.paleon.site(model=model.name, 
+                                   model.dir=file.path(path.raw, paste(model.name, model.names[model.names$Model==m, "Version"], sep=".")), 
+                                   sites=sites.all, 
+                                   vars="LAI")  
+    lai.sums <- apply(pft.tmp$LAI, c(1,3), FUN=sum)
+    pft.tmp$Fcomp <- pft.tmp$LAI
+    for(i in 1:dim(pft.tmp$LAI)[3]){
+      pft.tmp$Fcomp[,,i] <- pft.tmp$LAI[,,i]/lai.sums[,i]
+    }
+  }
+  
+  # Aggregate to annual
+  if(dim(pft.tmp$Fcomp)[1]>1161){
+    yr.rows <- seq(1, dim(pft.tmp$Fcomp)[1], by=12)
+    out.tmp <- array(dim=c(length(yr.rows), c(dim(pft.tmp$Fcomp)[2:3])))
+    for(i in 1:length(yr.rows)){
+      out.tmp[i,,] <- apply(pft.tmp$Fcomp[i:(i+11),,], c(2,3), FUN=mean)
+    }
+    pft.tmp$Fcomp <- out.tmp
+  }
+  dimnames(pft.tmp$Fcomp)[[3]] <- sites.all
+  dimnames(pft.tmp$Fcomp)[[1]] <- 849+1:dim(pft.tmp$Fcomp)[1]
+  
+  for(i in 1:dim(pft.tmp$Fcomp)[3]){
+    col.max <- which(apply(pft.tmp$Fcomp[,,i], 2, mean)==max(apply(pft.tmp$Fcomp[,,i], 2, mean)))
+    pft.max <- data.frame(Model=m,
+                          Site=as.factor(dimnames(pft.tmp$Fcomp)[[3]][i]),
+                          Year=as.numeric(dimnames(pft.tmp$Fcomp)[[1]]),
+                          PFTmax=as.factor(col.max),
+                          Fcomp=pft.tmp$Fcomp[,col.max,i])
+    
+    if(i==1 & m==unique(ecosys$Model)[1]){
+      fcomp <- pft.max
+    } else {
+      fcomp <- rbind(fcomp, pft.max)
+    }
+  }
 }
+ecosys <- merge(ecosys, fcomp, all.x=T, all.y=T)
 
-# Fit some simple gams with temporal thin-plate regression splines on year by model across sites
-gam.nee <- gam(NEE ~ s(Year,by=Model) + Model*Site, data=ecosys)
-gam.npp <- gam(NPP ~ s(Year,by=Model) + Model*Site, data=ecosys)
-gam.agb <- gam(AGB ~ s(Year,by=Model) + Model*Site, data=ecosys)
-gam.evg <- gam(Evergreen ~ s(Year,by=Model) + Model*Site, data=ecosys)
-gam.sc  <- gam(SoilCarb ~ s(Year,by=Model) + Model*Site, data=ecosys)
+# ----------------------
 
-# Doing a fancy prediction to get full 95% CIs
-source("~/Desktop/Research/R_Functions/Calculate_GAMM_Posteriors.R")
-nee.predict <- post.distns(model.gam=gam.nee, model.name="NEE"      , n=100, newdata=ecosys, vars="Year", terms=T)
-npp.predict <- post.distns(model.gam=gam.npp, model.name="NPP"      , n=100, newdata=ecosys, vars="Year", terms=T)
-agb.predict <- post.distns(model.gam=gam.agb, model.name="AGB"      , n=100, newdata=ecosys, vars="Year", terms=T)
-evg.predict <- post.distns(model.gam=gam.evg, model.name="Evergreen", n=100, newdata=ecosys[!ecosys$Model=="sibcasa",], vars="Year", terms=T)
-sc.predict  <- post.distns(model.gam=gam.sc , model.name="SoilCarb" , n=100, newdata=ecosys, vars="Year", terms=T)
+vars <- c("GPP", "NEE", "LAI", "AGB", "SoilCarb", "Fcomp") # Add dominant PFT
 
-# A little bit of re-formatting before we rbind the predictions together
-nee.predict$Effect <- as.factor("NEE")
-npp.predict$Effect <- as.factor("NPP")
-agb.predict$Effect <- as.factor("AGB")
-evg.predict$Effect <- as.factor("Evergreen")
-sc.predict $Effect <- as.factor("SoilCarb")
+# -------------------------------------------
 
-nee.predict$Year <- ecosys$Year
-npp.predict$Year <- ecosys$Year
-agb.predict$Year <- ecosys$Year
-evg.predict$Year <- ecosys[!ecosys$Model=="sibcasa","Year"]
-sc.predict $Year <- ecosys$Year
 
-nee.predict$Model <- ecosys$Model
-npp.predict$Model <- ecosys$Model
-agb.predict$Model <- ecosys$Model
-evg.predict$Model <- ecosys[!ecosys$Model=="sibcasa","Model"]
-sc.predict $Model <- ecosys$Model
+# -------------------------------------------
+# Run the gams & all the post-processing -- Full Temporal Extent
+# -------------------------------------------
+source("R/0_TimeAnalysis.R")
+# Just testing on 1 site for now
 
-nee.predict$Model.Order <- ecosys$Model.Order
-npp.predict$Model.Order <- ecosys$Model.Order
-agb.predict$Model.Order <- ecosys$Model.Order
-evg.predict$Model.Order <- ecosys[!ecosys$Model=="sibcasa","Model.Order"]
-sc.predict $Model.Order <- ecosys$Model.Order
+for(v in vars){
+  print(paste0("Processing Var: ", v, " (0850-2010)"))
+  
+  # Package the data
+  dat.list <- list()
+  for(m in unique(ecosys[!is.na(ecosys[,v]),"Model"])){
+    dat.list[[m]] <- ecosys[ecosys$Model==m, c("Model", "Site", "Year", v)]
+  }
+  
+  # Run the stats
+  cores.use <- min(12, length(dat.list))
+  dat.out <- mclapply(dat.list, analyze.time, mc.cores=cores.use, Y=v, fac.fit="Site", k.freq=25, path.gamm.func=path.gamm.func)
+  
+  # Format the output
+  for(m in names(dat.out)){
+    dat.out[[m]]$out$Model <- as.factor(m)
+    dat.out[[m]]$out$var   <- as.factor(v)
+    if(m == names(dat.out)[1]){
+      dat.out2 <- dat.out[[m]]$out
+    } else{
+      dat.out2 <- rbind(dat.out2, dat.out[[m]]$out)
+    }
+  } # End model formatting
 
-ecosys.change <- rbind(nee.predict, npp.predict, agb.predict, evg.predict, sc.predict)
-ecosys.change <- aggregate(ecosys.change[,c("mean", "lwr", "upr")], 
-                           by=ecosys.change[,c("Effect","Model", "Model.Order", "Year")],
-                           FUN=mean)
-summary(ecosys.change)
+  ## Some additional formatting
+  dat.out2$mean.sig <- ifelse(dat.out2$sig=="*", dat.out2$mean, NA)
+  dat.out2 <- merge(dat.out2, model.names, all.x=T, all.y=F)
+  dat.out2$Model.Order <- factor(dat.out2$Model.Order, levels=model.colors[model.colors$Model.Order %in% unique(dat.out2$Model.Order),"Model.Order"])  
+  
+  # Save the output
+  write.csv(dat.out2, file.path(out.dir, paste0("StabilityCalcs_", v, "_850-2010.csv")), row.names=F)
+  save(dat.out, file=file.path(out.dir, paste0("StabilityCalcs_", v, "_850-2010.RData")))
+  
+  # Make and save some figures
+  col.model <- paste(model.colors[model.colors$Model.Order %in% unique(dat.out2$Model.Order),"color"])
+  
+  png(file.path(fig.dir, paste0("Stability_", v, "_850-2010.png")), height=8.5, width=11, units="in", res=180)
+  print(
+  ggplot(data=dat.out2[,]) + 
+    facet_wrap(~Site) +
+    geom_line(aes(x=Year, y=Y, color=Model.Order), size=0.5, alpha=0.3) +
+    geom_ribbon(aes(x=Year, ymin=lwr, ymax=upr, fill=Model.Order), alpha=0.3) +
+    geom_line(aes(x=Year, y=mean, color=Model.Order), size=1, alpha=0.2) +
+    geom_line(aes(x=Year, y=mean.sig, color=Model.Order), size=2, alpha=1) +
+    geom_vline(xintercept=1850, linetype="dashed") +
+    scale_x_continuous(expand=c(0,0), name="Year") +
+    scale_y_continuous(expand=c(0,0), name=v) +
+    scale_color_manual(values=col.model) +
+    scale_fill_manual(values=col.model) + 
+    ggtitle(v) +
+    theme_bw()
+  )
+  dev.off()
+  
+} # End variable loop
+# -------------------------------------------
 
-col.model <- paste(model.colors[model.colors$Model.Order %in% unique(ecosys.change$Model.Order),"color"])
 
-png(file.path(fig.out, "Ecosystems_TemporalTrends.png"), height=8, width=9, units="in", res=180)
-ggplot(data=ecosys.change) +
-  facet_grid(Effect~., scales="free_y") +
-  geom_ribbon(aes(x=Year, ymin=lwr, ymax=upr, fill=Model), alpha=0.5) +
-  geom_line(aes(x=Year, y=mean, color=Model), size=1) +
-  geom_vline(xintercept=1850, linetype="dashed") +
-  scale_x_continuous(expand=c(0,0), name="Year") +
-  scale_y_continuous(expand=c(0,0), name="Temporal Trend") +
-  scale_color_manual(values=col.model) +
-  scale_fill_manual(values=col.model) + 
-  theme_bw()
-dev.off()
+# -------------------------------------------
+# Run the gams & all the post-processing -- Just pre-1850
+# -------------------------------------------
+source("R/0_TimeAnalysis.R")
+# Just testing on 1 site for now
+
+for(v in vars){
+  print(paste0("Processing Var: ", v, " (0850-1850)"))
+  
+  # Package the data
+  dat.list <- list()
+  for(m in unique(ecosys[!is.na(ecosys[,v]),"Model"])){
+    dat.list[[m]] <- ecosys[ecosys$Model==m & ecosys$Year<1850, c("Model", "Site", "Year", v)]
+  }
+  
+  # Run the stats
+  cores.use <- min(12, length(dat.list))
+  dat.out <- mclapply(dat.list, analyze.time, mc.cores=cores.use, Y=v, fac.fit="Site", k.freq=25, path.gamm.func=path.gamm.func)
+  
+  # Format the output
+  for(m in names(dat.out)){
+    dat.out[[m]]$out$Model <- as.factor(m)
+    dat.out[[m]]$out$var   <- as.factor(v)
+    if(m == names(dat.out)[1]){
+      dat.out2 <- dat.out[[m]]$out
+    } else{
+      dat.out2 <- rbind(dat.out2, dat.out[[m]]$out)
+    }
+  } # End model formatting
+  
+  # Adding the post-1850 data
+  ecosys2 <- data.frame(Model=ecosys$Model, Site=ecosys$Site, Year=ecosys$Year, Y=ecosys[,v])
+  dat.out2 <- merge(dat.out2, ecosys2, all.x=T, all.y=T)
+  summary(dat.out2)  
+
+  ## Some additional formatting
+  dat.out2$mean.sig <- ifelse(dat.out2$sig=="*", dat.out2$mean, NA)
+  dat.out2 <- merge(dat.out2, model.names, all.x=T, all.y=F)
+  dat.out2$Model.Order <- factor(dat.out2$Model.Order, levels=model.colors[model.colors$Model.Order %in% unique(dat.out2$Model.Order),"Model.Order"])  
+  
+  # Save the output
+  write.csv(dat.out2, file.path(out.dir, paste0("StabilityCalcs_", v, "_850-1850")), row.names=F)
+  save(dat.out, file=file.path(out.dir, paste0("StabilityCalcs_", v, "_850-1850.RData")))
+  
+  # Make and save some figures
+  col.model <- paste(model.colors[model.colors$Model.Order %in% unique(dat.out2$Model.Order),"color"])
+  
+  png(file.path(fig.dir, paste0("Stability_", v, "_850-1850.png")), height=8.5, width=11, units="in", res=180)
+  print(
+    ggplot(data=dat.out2[,]) + 
+      facet_wrap(~Site) +
+      geom_line(aes(x=Year, y=Y, color=Model.Order), size=0.5, alpha=0.3) +
+      geom_ribbon(aes(x=Year, ymin=lwr, ymax=upr, fill=Model.Order), alpha=0.3) +
+      geom_line(aes(x=Year, y=mean, color=Model.Order), size=1, alpha=0.2) +
+      geom_line(aes(x=Year, y=mean.sig, color=Model.Order), size=2, alpha=1) +
+      geom_vline(xintercept=1850, linetype="dashed") +
+      scale_x_continuous(expand=c(0,0), name="Year") +
+      scale_y_continuous(expand=c(0,0), name=v) +
+      scale_color_manual(values=col.model) +
+      scale_fill_manual(values=col.model) + 
+      ggtitle(v) +
+      theme_bw()
+  )
+  dev.off()
+  
+} # End variable loop
 # -------------------------------------------

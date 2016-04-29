@@ -410,10 +410,10 @@ pdf(file.path(fig.out, "MetVars_GAMM_Continuous.pdf"))
 for(v in unique(met.sites2$MetVar)){
   print(
     ggplot(data=met.sites3[met.sites3$MetVar==v,]) + 
-      geom_line(aes(x=Year, y=value, color=Site), size=0.5, alpha=0.3) +
-      geom_ribbon(aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.5) +
-      geom_line(aes(x=Year, y=mean, color=Site), size=1, alpha=0.3) +
-      geom_line(aes(x=Year, y=mean.sig, color=Site), size=1.5, alpha=1) +
+      geom_line(aes(x=Year, y=value, color=Site), size=0.25, alpha=0.2) +
+      geom_ribbon(aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.3) +
+      geom_line(aes(x=Year, y=mean, color=Site), size=1, alpha=0.2) +
+      geom_line(aes(x=Year, y=mean.sig, color=Site), size=2, alpha=1) +
       geom_vline(xintercept=1850, linetype="dashed") +
       scale_x_continuous(expand=c(0,0), name="Year") +
       scale_y_continuous(expand=c(0,0), name="Temporal Trend") +
@@ -444,11 +444,11 @@ pdf(file.path(fig.out, "MetVars_GAMM_Separate.pdf"))
 for(v in unique(met.sites2$MetVar)){
   print(
     ggplot(data=met.sites4[met.sites4$MetVar==v,]) + 
-      geom_line(aes(x=Year, y=value, color=Site), size=0.5, alpha=0.3) +
-      geom_ribbon(data=met.sites4[met.sites4$MetVar==v & met.sites4$Year<1850,], aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.5) +
-      geom_ribbon(data=met.sites4[met.sites4$MetVar==v & met.sites4$Year>1900,], aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.5) +
-      geom_line(aes(x=Year, y=mean, color=Site), size=1, alpha=0.3) +
-      geom_line(aes(x=Year, y=mean.sig, color=Site), size=1.5, alpha=1) +
+      geom_line(aes(x=Year, y=value, color=Site), size=0.25, alpha=0.2) +
+      geom_ribbon(data=met.sites4[met.sites4$MetVar==v & met.sites4$Year<1850,], aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.3) +
+      geom_ribbon(data=met.sites4[met.sites4$MetVar==v & met.sites4$Year>1900,], aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.3) +
+      geom_line(aes(x=Year, y=mean, color=Site), size=1, alpha=0.2) +
+      geom_line(aes(x=Year, y=mean.sig, color=Site), size=2, alpha=1) +
       geom_vline(xintercept=1850, linetype="dashed") +
       scale_x_continuous(expand=c(0,0), name="Year") +
       scale_y_continuous(expand=c(0,0), name="Temporal Trend") +
