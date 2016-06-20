@@ -108,9 +108,12 @@ Howland_annual = group_by(HowlandHo1,YEAR)
 Howland_YearSum = Howland_annual %>%
   summarise( n=n(), VPDdaily=mean(VPD, na.rm = TRUE),GPPdaily=sum(GPPgC, na.rm = TRUE),Precip=sum(PREC, na.rm = TRUE))
 
+
 #quick plot Howland
 plot(Howland_YearSum$YEAR,Howland_YearSum$GPP)
 
+
+Howland_month = group_by(HowlandHo1,YEAR,)
 
 
 ####
