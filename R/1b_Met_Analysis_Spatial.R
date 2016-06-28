@@ -1,5 +1,6 @@
 # -------------------------------------------
 # 1. Spatial descriptions of meteorology and change from initial state
+# Author: Christy Rollinson, crollinson@gmail.com
 # -------------------------------------------
 rm(list=ls())
 

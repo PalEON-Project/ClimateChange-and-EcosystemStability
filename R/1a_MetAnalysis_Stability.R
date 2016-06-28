@@ -1,5 +1,6 @@
 # -------------------------------------------
 # Assessing the scales and magnitude of climate change variability over the past millennium in the MIP drivers
+# Author: Christy Rollinson, crollinson@gmail.com
 
 # 1. Stastical detection of significant change
 #    - Use loess or TP regression splines

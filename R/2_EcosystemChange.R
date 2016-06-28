@@ -1,5 +1,6 @@
 # -------------------------------------------
 # Assessing the scales and magnitude of change in ecosystem state
+# Author: Christy Rollinson, crollinson@gmail.com
 
 # 1. Stastical detection of significant change
 #    - Use TP regression splines
