@@ -31,7 +31,7 @@ Ha1_annual=read.csv(paste0(filepathHa1,"FLX_US-Ha1_FLUXNET2015_FULLSET_YY_1991-2
 Ha1_Monthly=read.csv(paste0(filepathHa1,"./FLX_US-Ha1_FLUXNET2015_FULLSET_MM_1991-2012_1-1.csv"))
 Ha1_daily=read.csv(paste0(filepathHa1,"./FLX_US-Ha1_FLUXNET2015_FULLSET_DD_1991-2012_1-1.csv"))
 
-MMS_Meteo = read.csv(paste0(filepathMMS,"./FLX_US-Ha1_FLUXNET2015_AUXMETEO_1991-2012_1-1.csv"))
+Ha1_Meteo = read.csv(paste0(filepathMMS,"./FLX_US-Ha1_FLUXNET2015_AUXMETEO_1991-2012_1-1.csv"))
 
 #Morgan Monroe
 filepathMMS="D:/GlobalDatasets/FLUXNET06202016//FLX_US-MMS_FLUXNET2015_FULLSET_1999-2014_1-1"
