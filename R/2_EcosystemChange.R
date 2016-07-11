@@ -4,7 +4,6 @@
 
 # 1. Stastical detection of significant change
 #    - Use TP regression splines
-# 2. Comparison with paleoclimate reconstructions
 # -------------------------------------------
 rm(list=ls())
 

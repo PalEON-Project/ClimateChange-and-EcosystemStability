@@ -24,7 +24,7 @@ raw.dir <- "raw_data"
 out.dir <- "Data/Met"
 fig.out <- "Figures/Met"
 
-if(!dir.exists(dat.out)) dir.create(dat.out)
+if(!dir.exists(out.dir)) dir.create(out.dir)
 if(!dir.exists(fig.out)) dir.create(fig.out)
 # -------------------------------------------
 
@@ -306,6 +306,7 @@ write.csv(met.sites, file=file.path(out.dir, "Met_Sites_Annual.csv"), row.names=
 # -------------------------------------------
 # Analyzing Met stability and comparing with Paleo drivers
 # -------------------------------------------
+{
 source("R/0_TimeAnalysis.R")
 
 # Note: I've saved the 
@@ -345,11 +346,6 @@ for(m in names(dat.out)){
 # dat.out3 <- dat.out3[!is.na(dat.out3$Y),]
 summary(dat.out3)
 
-ggplot(dat.out3[,]) +
-  facet_wrap(~Model, scales="free_y") +
-  geom_line(aes(x=Year, y=Y, color=Site), size=0.2)
-# geom_point(aes(x=Year, y=mean, color=Site), size=0.2)
-
 # Adding the var to met sites to make the merge happen correctly
 met.sites2 <- stack(met.sites[,met.vars])
 names(met.sites2) <- c("Y", "var")
@@ -377,12 +373,12 @@ print(
     geom_ribbon(data=dat.out4[dat.out4$Year<1850,], aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.3) +
     geom_ribbon(data=dat.out4[dat.out4$Year>1900,], aes(x=Year, ymin=lwr, ymax=upr, fill=Site), alpha=0.3) +
     geom_line(data=dat.out4[dat.out4$Year<1850,], aes(x=Year, y=mean, color=Site), size=1, alpha=0.2) +
-    geom_line(data=dat.out4[dat.out4$Year>1900,], aes(x=Year, y=mean, color=Site), size=2, alpha=1) +
+    geom_line(data=dat.out4[dat.out4$Year>1900,], aes(x=Year, y=mean, color=Site), size=1, alpha=0.2) +
     geom_line(aes(x=Year, y=mean.sig, color=Site), size=2, alpha=1) +
     geom_vline(xintercept=1850, linetype="dashed") +
     geom_vline(xintercept=1900, linetype="dashed") +
     scale_x_continuous(expand=c(0,0), name="Year") +
-    scale_y_continuous(expand=c(0,0), name=v) +
+    scale_y_continuous(expand=c(0,0), name="Met") +
     # scale_color_manual(values=col.model) +
     # scale_fill_manual(values=col.model) + 
     theme_bw()
@@ -390,4 +386,5 @@ print(
 dev.off()
   
 
+}
 # -------------------------------------------
