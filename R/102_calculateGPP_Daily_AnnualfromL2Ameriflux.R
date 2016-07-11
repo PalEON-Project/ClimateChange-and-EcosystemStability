@@ -12,11 +12,14 @@ library(tidyr)
 #You should have 4 .Rdata files
 # mine are in a folder called "./data/fluxdata"
 # setwd("D:/Dropbox/rProjectsShare/MIP-Change-and-Stability")
+setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # CR BU path
 
-load("./data/fluxdata/HowlandHo1.ameriflux.allsites.L2_data.17Jun2016.RData")
-load("./data/fluxdata/HarvardHa1.ameriflux.allsites.L2_data.05Mar2016.RData")
-load("./data/fluxdata/WillowCreekWCr.ameriflux.allsites.L2_data.17Jun2016.RData")
-load("./data/fluxdata/WillowCreekWCr.ameriflux.allsites.L2_data.17Jun2016.RData")
+path.raw <- "raw_data/Benchmarks/fluxdata"
+
+load(file.path(path.raw, "HowlandHo1.ameriflux.allsites.L2_data.17Jun2016.RData"))
+load(file.path(path.raw, "HarvardHa1.ameriflux.allsites.L2_data.05Mar2016.RData"))
+load(file.path(path.raw, "WillowCreekWCr.ameriflux.allsites.L2_data.17Jun2016.RData"))
+load(file.path(path.raw, "WillowCreekWCr.ameriflux.allsites.L2_data.17Jun2016.RData"))
 
 hist(HarvardHa1$GPP[HarvardHa1$GPP==-9999])
 plot(HarvardHa1$GPP[HarvardHa1$GAP==0])
