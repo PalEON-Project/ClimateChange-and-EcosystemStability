@@ -15,12 +15,12 @@ library(car)
 library(ggplot2)
 library(mgcv)
 library(parallel)
-setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
+setwd("~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
 path.gamm.func <- "~/Desktop/R_Functions/"  # Path to github repository of my GAMM helper functions: https://github.com/crollinson/R_Functions.git
-inputs    <- "~/Dropbox/PalEON_CR/PalEON_MIP_Site/phase1a_output_variables/" # Path to my cleaned model output
+inputs    <- "~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/phase1a_output_variables/" # Path to my cleaned model output
 
-mip.utils <- "~/Dropbox/PalEON_CR/MIP_Utils/" # Path to PalEON MIP Utility repository: https://github.com/PalEON-Project/MIP_Utils.git
-path.raw <- "~/Dropbox/PalEON_CR/PalEON_MIP_Site/phase1a_model_output/" # Path to raw model output
+mip.utils <- "~/Desktop/Research/PalEON_CR/MIP_Utils/" # Path to PalEON MIP Utility repository: https://github.com/PalEON-Project/MIP_Utils.git
+path.raw <- "~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/phase1a_model_output/" # Path to raw model output
 
 out.dir <- "Data/EcosysChange" # Path to where the analysis output should go
 fig.dir <- "Figures/EcosysChange" # Path to where figures should go
@@ -120,6 +120,8 @@ ggplot(data=ecosys) +
   facet_wrap(~Model) +
   geom_line(aes(x=Year, y=Fcomp, color=Site, linetype=PFTmax)) +
   theme_bw()
+
+write.csv(ecosys, "Data/PalEON_MIP_Yearly_withFcomp.csv")
 # ----------------------
 
 vars <- c("GPP", "NEE", "LAI", "AGB", "SoilCarb", "Fcomp") # Add dominant PFT
