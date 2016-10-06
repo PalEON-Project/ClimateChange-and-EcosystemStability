@@ -121,10 +121,11 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 
 	  source(file.path(mip.utils, "Phase1_sites/extract_output_site.R"))
   
+	  
 	  for(m in unique(ecosys$Model)){
   		if(m == "sibcasa") next # Sibcasa has no composition, so skip
-  		sites.stepps <- unique(stepps2.pft[[mod]]$site)
   		mod=ifelse(m=="linkages", "LINKAGES.STEPPS",paste(model.names[model.names$Model==m, "Mod.Type"]))
+  		sites.stepps <- unique(stepps2.pft[[mod]]$site)
   		print(paste0(m))
   		model.name = model.names[model.names$Model==m, "Model.Name"]
   		pft.tmp <- extract.paleon.site(model=model.name, 
@@ -184,69 +185,74 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   		stepps2.pft[[mod]][,paste0(m, ".check")] <- as.factor(ifelse(stepps2.pft[[mod]][,m]>=stepps2.pft[[mod]][,"lwr"] & stepps2.pft[[mod]][,m]<=stepps2.pft[[mod]][,"upr"], "*", NA))
 	  } # end model loop
   
+	  # Change LINKAGES.STEPPS to just LINKAGES
+	  names(stepps2.pft)[which(names(stepps2.pft)=="LINKAGES.STEPPS")] <- "LINKAGES"
+	  
 	  # STEPPS Benchmarking Performance
 	  for(i in 1:length(stepps2.pft)){
-  		models.pull <- paste(model.names[model.names$STEPPS==names(stepps2.pft)[i], "Model"])
+  		models.pull <- paste(model.names[model.names$Mod.Type==names(stepps2.pft)[i], "Model"])
   		if(length(models.pull)>1){
   		  dat.base <- stack(stepps2.pft[[i]][,models.pull])
-  		  names(dat.base) <- c("Fcomp.mean", "Model")
+  		  names(dat.base) <- c("model.mean", "Model")
   		  dat.base[,c("bias")] <- stack(stepps2.pft[[i]][,paste0(models.pull, ".bias")])[,1]
   		} else{
-  		  dat.base <- data.frame(Fcomp.mean=stepps2.pft[[i]][,models.pull], Model=models.pull)
+  		  dat.base <- data.frame(model.mean=stepps2.pft[[i]][,models.pull], Model=models.pull)
   		  dat.base[,c("bias")] <- stepps2.pft[[i]][,paste0(models.pull, ".bias")]
   		}
   		
   		dat.base[,c("year", "site", "pft")] <- stepps2.pft[[i]][,c("year", "site", "pft")]
   		dat.base[,c("stepps.mean", "stepps.lwr", "stepps.upr")] <- stepps2.pft[[i]][,c("mean", "lwr", "upr")]
   	
-  		dat.base <- dat.base[,c("site", "year", "Model", "pft", "stepps.mean", "stepps.lwr", "stepps.upr", "Fcomp.mean", "bias")]
+  		dat.base <- dat.base[,c("site", "year", "Model", "pft", "stepps.mean", "stepps.lwr", "stepps.upr", "model.mean", "bias")]
   		if(i==1){
   		  stepps.bench <- dat.base
   		} else {
   		  stepps.bench <- rbind(stepps.bench, dat.base)
   		}
 	  }
-	  stepps.bench$CI.check <- as.factor(ifelse(stepps.bench$Fcomp.mean>=stepps.bench$stepps.lwr & stepps.bench$Fcomp.mean<=stepps.bench$stepps.upr, "*", NA))
+	  stepps.bench$bias.abs <- abs(stepps.bench$bias)
+	  stepps.bench$CI.check <- as.factor(ifelse(stepps.bench$model.mean>=stepps.bench$stepps.lwr & stepps.bench$model.mean<=stepps.bench$stepps.upr, "*", NA))
 	  write.csv(stepps.bench, file.path(out.dir, "Composition_STEPPS2_ModelBenchmarks.csv"), row.names=F)
 
 	  png(file.path(fig.dir, "Composition_STEPPS2_ModelBenchmarks.png"), height=8, width=10, units="in", res=180)
 	  ggplot(data=stepps.bench) +
-		facet_wrap(~Model) +
-		geom_ribbon(aes(x=year, ymin=stepps.lwr, ymax=stepps.upr, fill=site), alpha=0.3) +
-		geom_line(aes(x=year, y=stepps.mean, color=site), linetype="dashed") +
-		geom_line(aes(x=year, y=Fcomp.mean, color=site), size=2) +
-		theme_bw() +
-		theme(legend.position="top")
+  		facet_wrap(~Model) +
+  		geom_ribbon(aes(x=year, ymin=stepps.lwr, ymax=stepps.upr, fill=site), alpha=0.3) +
+  		geom_line(aes(x=year, y=stepps.mean, color=site), linetype="dashed") +
+  		geom_line(aes(x=year, y=model.mean, color=site), size=2) +
+  		theme_bw() +
+  		theme(legend.position="top")
 	  dev.off()
 
 	  # Lookign at some quick summary stats by model
-	  stepps.bench2 <- aggregate(stepps.bench[,c("stepps.mean", "stepps.lwr", "stepps.upr", "Fcomp.mean", "bias")],
-								 by=stepps.bench[,c("Model", "site", "pft")],
-								 FUN=mean, na.rm=T)
-	  stepps.bench2[,c("bias.sd")] <- aggregate(stepps.bench[,c("bias")],
-											 by=stepps.bench[,c("Model", "site", "pft")],
-											 FUN=sd, na.rm=T)[,"x"]
-	  stepps.bench2$CI <- as.factor(ifelse(stepps.bench2$Fcomp.mean>=stepps.bench2$stepps.lwr & stepps.bench2$Fcomp.mean<=stepps.bench2$stepps.upr, "in", "out"))
+	  stepps.bench2 <- aggregate(stepps.bench[,c("stepps.mean", "stepps.lwr", "stepps.upr", "model.mean", "bias", "bias.abs")],
+								               by=stepps.bench[,c("Model", "site", "pft")],
+								               FUN=mean, na.rm=T)
+	  stepps.bench2[,c("stepps.sd", "model.sd", "bias.sd", "bias.abs.sd")] <- aggregate(stepps.bench[,c("stepps.mean", "model.mean", "bias", "bias.abs")],
+	                                                                                    by=stepps.bench[,c("Model", "site", "pft")],
+	                                                                                    FUN=sd, na.rm=T)[,c("stepps.mean", "model.mean", "bias", "bias.abs")]
+	  stepps.bench2$CI <- as.factor(ifelse(stepps.bench2$model.mean>=stepps.bench2$stepps.lwr & stepps.bench2$model.mean<=stepps.bench2$stepps.upr, "in", "out"))
 	  stepps.bench2 <- merge(stepps.bench2, model.names[,c("Model", "Model.Order")], all.x=T)
+	  
 
 	  png(file.path(fig.dir, "Composition_STEPPS2_ModelBenchmarks_SiteMeans.png"), height=8, width=10, units="in", res=180)
 	  ggplot(data=stepps.bench2[,]) +
-		facet_wrap(~site) +
-		geom_pointrange(aes(x=Model.Order, y=stepps.mean, ymin=stepps.lwr, ymax=stepps.upr), color="gray") +
-		geom_point(aes(x=Model.Order, y=Fcomp.mean, color=Model.Order), size=3) +
-		scale_y_continuous(name="Fcomp STEPPS Dominant PFT") +
-		scale_x_discrete(name="Model") +
-		scale_color_manual(values=paste(model.colors$color), name="Model") + 
-		theme_bw() +
-		theme(axis.text.x=element_blank())
+  		facet_wrap(~site) +
+  		geom_pointrange(aes(x=Model.Order, y=stepps.mean, ymin=stepps.lwr, ymax=stepps.upr), color="gray") +
+  		geom_point(aes(x=Model.Order, y=model.mean, color=Model.Order), size=3) +
+  		scale_y_continuous(name="Fcomp STEPPS Dominant PFT") +
+  		scale_x_discrete(name="Model") +
+  		scale_color_manual(values=paste(model.colors$color), name="Model") + 
+  		theme_bw() +
+  		theme(axis.text.x=element_blank())
 	  dev.off()
 
-	  stepps.performance <- aggregate(stepps.bench2[,c("bias", "bias.sd")],
-									by=stepps.bench2[,c("Model", "Model.Order")],
-									FUN=mean, na.rm=T)
-	  stepps.performance[,c("SD.bias", "SD.bias.sd")] <- aggregate(stepps.bench2[,c("bias", "bias.sd")],
-																 by=stepps.bench2[,c("Model", "Model.Order")],
-																 FUN=sd, na.rm=T)[,c("bias", "bias.sd")]
+	  stepps.performance <- aggregate(stepps.bench2[,c("stepps.mean", "model.mean", "bias", "bias.abs")],
+	                                  by=stepps.bench2[,c("Model", "Model.Order")],
+	                                  FUN=mean, na.rm=T)
+	  stepps.performance[,c("stepps.sd", "model.sd", "bias.sd", "bias.abs.sd")] <- aggregate(stepps.bench2[,c("stepps.mean", "model.mean", "bias", "bias.abs")],
+	                                                                                         by=stepps.bench2[,c("Model", "Model.Order")],
+	                                                                                         FUN=sd, na.rm=T)[,c("stepps.mean", "model.mean", "bias", "bias.abs")]
 	  stepps.performance
 	  # On average, JULES-STATIC & CLM-BGC (two static veg models) had the the lowest bias, 
 	  #  but CLM-LINKAGES, CLM-CN, and LPJ-WSL (two dynamic veg models) had the most consistent bias
@@ -261,7 +267,7 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     # Load SetVeg benchmark & PFT crosswalk
     #  -- This is just the Fcomp of the dominant PFT
     setveg.pft <- read.csv(file.path(out.dir, "SetVeg_ModelPFTs.csv"))
-    names(setveg.pft)[1] <- "Mod.Type"
+    names(setveg.pft) <- c("Mod.Type", "Site", "pft", "svcomp.mean", "svcomp.lwr", "svcomp.upr")
     summary(setveg.pft)
     
     # Merging in the true model information
@@ -291,7 +297,7 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
       if(m %in% c("jules.stat")){
         pft.tmp <- extract.paleon.site(model=model.name, 
                                        model.dir=file.path(path.raw, paste(model.name, model.names[model.names$Model==m, "Version"], sep=".")), 
-                                       sites=paste(sites.stepps), 
+                                       sites=paste(sites.setveg), 
                                        vars="LAI")  
         lai.sums <- apply(pft.tmp$LAI, c(1,3), FUN=sum)
         pft.tmp$Fcomp <- pft.tmp$LAI
@@ -331,15 +337,15 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
         }
 
         # Extract the Settlement Vegetation Era mean (1800-1850)
-        setveg.pft[setveg.pft$Model==m & setveg.pft$Site==site.now, "mod.mean"] <- round(mean(fcomp[which(names(fcomp)>=1800 & names(fcomp)<=1850)]),6)
-        setveg.pft[setveg.pft$Model==m & setveg.pft$Site==site.now, "mod.sd"] <- round(sd(fcomp[which(names(fcomp)>=1800 & names(fcomp)<=1850)]),6)
+        setveg.pft[setveg.pft$Model==m & setveg.pft$Site==site.now, "model.mean"] <- round(mean(fcomp[which(names(fcomp)>=1800 & names(fcomp)<=1850)]),6)
+        setveg.pft[setveg.pft$Model==m & setveg.pft$Site==site.now, "model.sd"] <- round(sd(fcomp[which(names(fcomp)>=1800 & names(fcomp)<=1850)]),6)
       } # End site loop
     } # end model loop
 
     # # Store some calculations
-    setveg.pft$mod.bias <- setveg.pft$mod.mean - setveg.pft$mean
+    setveg.pft$mod.bias <- setveg.pft$model.mean - setveg.pft$svcomp.mean
     setveg.pft$mod.bias.abs <- abs(setveg.pft$mod.bias)
-    setveg.pft$range.check <- as.factor(ifelse(setveg.pft$mod.mean + 2*setveg.pft$mod.sd>=setveg.pft$lwr & setveg.pft$mod.mean - 2*setveg.pft$mod.sd<=setveg.pft$upr,
+    setveg.pft$range.check <- as.factor(ifelse(setveg.pft$model.mean + 2*setveg.pft$model.sd>=setveg.pft$svcomp.lwr & setveg.pft$model.mean - 2*setveg.pft$model.sd<=setveg.pft$svcomp.upr,
                                                "*", NA))
     summary(setveg.pft)
     write.csv(setveg.pft, file.path(out.dir, "Composition_SetVeg_ModelBenchmarks.csv"), row.names=F)
@@ -351,8 +357,8 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "Composition_SetVeg_ModelBenchmarks_byModel.png"), height=8, width=10, units="in", res=180)
     ggplot(data=setveg.pft[,]) +
       facet_wrap(~Site) +
-      geom_pointrange(aes(x=Model.Order, y=mean, ymin=lwr, ymax=upr), color="black") +
-      geom_pointrange(aes(x=Model.Order, y=mod.mean, ymin=mod.mean-2*mod.sd, ymax=mod.mean+2*mod.sd, color=Model.Order)) +
+      geom_pointrange(aes(x=Model.Order, y=svcomp.mean, ymin=svcomp.lwr, ymax=svcomp.upr), color="black") +
+      geom_pointrange(aes(x=Model.Order, y=model.mean, ymin=model.mean-2*model.sd, ymax=model.mean+2*model.sd, color=Model.Order)) +
       scale_y_continuous(name="Fcomp SetVeg Dominant PFT") +
       scale_x_discrete(name="Model") +
       scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -363,8 +369,8 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "Composition_SetVeg_ModelBenchmarks_bySite.png"), height=8, width=10, units="in", res=180)
     ggplot(data=setveg.pft[,]) +
       facet_wrap(~Model.Order) +
-      geom_pointrange(aes(x=Site, y=mean, ymin=lwr, ymax=upr), color="black") +
-      geom_pointrange(aes(x=Site, y=mod.mean, ymin=mod.mean-2*mod.sd, ymax=mod.mean+2*mod.sd, color=Model.Order)) +
+      geom_pointrange(aes(x=Site, y=svcomp.mean, ymin=svcomp.lwr, ymax=svcomp.upr), color="black") +
+      geom_pointrange(aes(x=Site, y=model.mean, ymin=model.mean-2*model.sd, ymax=model.mean+2*model.sd, color=Model.Order)) +
       scale_y_continuous(name="Fcomp SetVeg Dominant PFT") +
       scale_x_discrete(name="Model") +
       scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -373,25 +379,25 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     dev.off()
     
     # Getting the average bias for each model
-    setveg.mod <- aggregate(setveg.pft[,c("mod.bias", "mod.bias.abs")],
+    setveg.mod <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                             by=setveg.pft[,c("Model", "Model.Order")],
                             FUN=mean)
     
-    setveg.mod[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(setveg.pft[,c("mod.bias", "mod.bias.abs")],
+    setveg.mod[,c("svcomp.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                                                                   by=setveg.pft[,c("Model", "Model.Order")],
-                                                                  FUN=sd)[,c("mod.bias", "mod.bias.abs")]
+                                                                  FUN=sd)[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")]
     setveg.mod
     write.csv(setveg.mod, file.path(out.dir, "Composition_SetVeg_ModelBenchmarks_Summary.csv"), row.names=F)
     
     # Getting the average bias for each model
-    setveg.site <- aggregate(setveg.pft[,c("mod.bias", "mod.bias.abs")],
+    setveg.site <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                              by=list(setveg.pft$Site),
                              FUN=mean)
     names(setveg.site)[1] <- "Site"
     
-    setveg.site[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(setveg.pft[,c("mod.bias", "mod.bias.abs")],
+    setveg.site[,c("svcomp.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                                                                    by=list(setveg.pft$Site),
-                                                                   FUN=sd)[,c("mod.bias", "mod.bias.abs")]
+                                                                   FUN=sd)[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")]
     setveg.site
     write.csv(setveg.site, file.path(out.dir, "Composition_SetVeg_SiteBenchmarks_Summary.csv"), row.names=F)
   }
@@ -403,22 +409,23 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   {
     # Read in the set veg biomass estimate
 	  sv.biom <- read.csv(file.path(out.dir, "SetVeg_Biomass.csv"))
+	  names(sv.biom)[4:7] <- c("svbiom.mean", "svbiom.sd", "svbiom.lwr", "svbiom.upr")
 	  sv.biom <- sv.biom[complete.cases(sv.biom),] # get rid of sites outside of setveg biomass
-	  sv.biom[,c("Biomass", "Biomass.SD", "lwr", "upr")] <- sv.biom[,c("Biomass", "Biomass.SD", "lwr", "upr")]*0.1*.5 # Convert Mg HA-1 to KgC m-2 
+	  sv.biom[,c("svbiom.mean", "svbiom.sd", "svbiom.lwr", "svbiom.upr")] <- sv.biom[,c("svbiom.mean", "svbiom.sd", "svbiom.lwr", "svbiom.upr")]*0.1*.5 # Convert Mg HA-1 to KgC m-2 
 	  sv.biom
 	  
 	  mod.svbiom <- aggregate(ecosys[ecosys$Year>=1800 & ecosys$Year<=1850 & ecosys$Site %in% sv.biom$Site, "AGB"], 
 	                          by=ecosys[ecosys$Year>=1800 & ecosys$Year<=1850 & ecosys$Site %in% sv.biom$Site, c("Site", "Model", "Model.Order")],
 	                          FUN=mean)
-	  names(mod.svbiom)[4] <- c("AGB.mod")
-	  mod.svbiom$AGB.mod.sd <- aggregate(ecosys[ecosys$Year>=1800 & ecosys$Year<=1850 & ecosys$Site %in% sv.biom$Site, "AGB"], 
+	  names(mod.svbiom)[4] <- c("model.mean")
+	  mod.svbiom$model.sd <- aggregate(ecosys[ecosys$Year>=1800 & ecosys$Year<=1850 & ecosys$Site %in% sv.biom$Site, "AGB"], 
 	                                     by=ecosys[ecosys$Year>=1800 & ecosys$Year<=1850 & ecosys$Site %in% sv.biom$Site, c("Site", "Model", "Model.Order")],
 	                                     FUN=sd)[,"x"]
 	  summary(mod.svbiom)
 	  
 	  mod.svbiom <- merge(mod.svbiom, sv.biom)
 	  
-	  mod.svbiom$mod.bias <- mod.svbiom$AGB.mod - mod.svbiom$Biomass
+	  mod.svbiom$mod.bias <- mod.svbiom$model.mean - mod.svbiom$svbiom.mean
 	  mod.svbiom$mod.bias.abs <- abs(mod.svbiom$mod.bias)
 	  summary(mod.svbiom)
 	  
@@ -431,10 +438,10 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  png(file.path(fig.dir, "Biomass_SetVeg_ModelBenchmarks_byModel.png"), height=8, width=10, units="in", res=180)
 	  ggplot(data=mod.svbiom[,]) +
 	    facet_wrap(~Site) +
-	    geom_hline(aes(yintercept=Biomass), color="black", size=1.5, linetype="solid") +
-	    geom_hline(aes(yintercept=Biomass-2*Biomass.SD), color="gray50", size=1, linetype="solid") +
-	    geom_hline(aes(yintercept=Biomass+2*Biomass.SD), color="gray50", size=1, linetype="solid") +
-	    geom_pointrange(aes(x=Model.Order, y=AGB.mod, ymin=AGB.mod-2*AGB.mod.sd, ymax=AGB.mod+2*AGB.mod.sd, color=Model.Order)) +
+	    geom_hline(aes(yintercept=svbiom.mean), color="black", size=1.5, linetype="solid") +
+	    geom_hline(aes(yintercept=svbiom.mean-2*svbiom.sd), color="gray50", size=1, linetype="solid") +
+	    geom_hline(aes(yintercept=svbiom.mean+2*svbiom.sd), color="gray50", size=1, linetype="solid") +
+	    geom_pointrange(aes(x=Model.Order, y=model.mean, ymin=model.mean-2*model.sd, ymax=model.mean+2*model.sd, color=Model.Order)) +
 	    scale_y_continuous(name="Fcomp SetVeg Dominant PFT") +
 	    scale_x_discrete(name="Model") +
 	    scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -445,8 +452,8 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  png(file.path(fig.dir, "Biomass_SetVeg_ModelBenchmarks_bySite.png"), height=8, width=10, units="in", res=180)
 	  ggplot(data=mod.svbiom[,]) +
 	    facet_wrap(~Model.Order) +
-	    geom_pointrange(aes(x=Site, y=Biomass, ymin=Biomass-2*Biomass.SD, ymax=Biomass+2*Biomass.SD), color="black") +
-	    geom_pointrange(aes(x=Site, y=AGB.mod, ymin=AGB.mod-2*AGB.mod.sd, ymax=AGB.mod+2*AGB.mod.sd, color=Model.Order)) +
+	    geom_pointrange(aes(x=Site, y=svbiom.mean, ymin=svbiom.mean-2*svbiom.sd, ymax=svbiom.mean+2*svbiom.sd), color="black") +
+	    geom_pointrange(aes(x=Site, y=model.mean, ymin=model.mean-2*model.sd, ymax=model.mean+2*model.sd, color=Model.Order)) +
 	    scale_y_continuous(name="Fcomp SetVeg Dominant PFT") +
 	    scale_x_discrete(name="Model") +
 	    scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -455,25 +462,25 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  dev.off()
 	  
 	  # Getting the average bias for each model
-	  setveg.mod <- aggregate(mod.svbiom[,c("mod.bias", "mod.bias.abs")],
+	  setveg.mod <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
 	                          by=mod.svbiom[,c("Model", "Model.Order")],
 	                          FUN=mean)
 	  
-	  setveg.mod[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(mod.svbiom[,c("mod.bias", "mod.bias.abs")],
-	                                                                by=mod.svbiom[,c("Model", "Model.Order")],
-	                                                                FUN=sd)[,c("mod.bias", "mod.bias.abs")]
+	  setveg.mod[,c("svbiom.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+	                                                                                         by=mod.svbiom[,c("Model", "Model.Order")],
+	                                                                                         FUN=sd)[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")]
 	  setveg.mod
 	  write.csv(setveg.mod, file.path(out.dir, "Biomass_SetVeg_ModelBenchmarks_Summary.csv"), row.names=F)
 	  
 	  # Getting the average bias for each model
-	  setveg.site <- aggregate(mod.svbiom[,c("mod.bias", "mod.bias.abs")],
+	  setveg.site <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
 	                           by=list(mod.svbiom$Site),
 	                           FUN=mean)
 	  names(setveg.site)[1] <- "Site"
 	  
-	  setveg.site[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(mod.svbiom[,c("mod.bias", "mod.bias.abs")],
+	  setveg.site[,c("svbiom.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
 	                                                                 by=list(mod.svbiom$Site),
-	                                                                 FUN=sd)[,c("mod.bias", "mod.bias.abs")]
+	                                                                 FUN=sd)[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")]
 	  setveg.site
 	  write.csv(setveg.site, file.path(out.dir, "Biomass_SetVeg_SiteBenchmarks_Summary.csv"), row.names=F)
   }
@@ -490,23 +497,23 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   
 	  # NBCD combines FIA with Landsat (1999-2002), so lets pull Model AGB estimates from that time period
 	  nbcd.bench <- aggregate(ecosys[ecosys$Year>=1999 & ecosys$Year<=2002, "AGB"], 
-							  by=ecosys[ecosys$Year>=1999 & ecosys$Year<=2002,c("Model", "Model.Order", "Site")], 
-							  FUN=mean)
-	  names(nbcd.bench)[which(names(nbcd.bench)=="x")] <- "AGB.mean"
-	  nbcd.bench[,"AGB.sd"] <- aggregate(ecosys[ecosys$Year>=1999 & ecosys$Year<=2002, "AGB"], 
-							   by=ecosys[ecosys$Year>=1999 & ecosys$Year<=2002,c("Model", "Model.Order", "Site")], 
-							   FUN=sd)[,"x"]
-	  nbcd.bench[nbcd.bench$Model=="jules.stat",c("AGB.mean", "AGB.sd")] <- NA # Putting NAs in Jules because it doesn't do Biomass
+		  					  by=ecosys[ecosys$Year>=1999 & ecosys$Year<=2002,c("Model", "Model.Order", "Site")], 
+			  				  FUN=mean)
+	  names(nbcd.bench)[which(names(nbcd.bench)=="x")] <- "model.mean"
+	  nbcd.bench[,"model.sd"] <- aggregate(ecosys[ecosys$Year>=1999 & ecosys$Year<=2002, "AGB"], 
+				                      			   by=ecosys[ecosys$Year>=1999 & ecosys$Year<=2002,c("Model", "Model.Order", "Site")], 
+				                      			   FUN=sd)[,"x"]
+	  nbcd.bench[nbcd.bench$Model=="jules.stat",c("model.mean", "model.sd")] <- NA # Putting NAs in Jules because it doesn't do Biomass
 	  summary(nbcd.bench)
   
 	  # Merging NBCD with the model results
 	  nbcd.bench <- merge(nbcd.bench, bm.nbcd)
   
 	  # Calculating some statistics
-	  nbcd.bench$bias <- nbcd.bench$AGB.mean - nbcd.bench$nbcd.mean
+	  nbcd.bench$bias <- nbcd.bench$model.mean - nbcd.bench$nbcd.mean
 	  nbcd.bench$bias.sd <- nbcd.bench$bias/nbcd.bench$nbcd.sd
 	  nbcd.bench$bias.abs <- abs(nbcd.bench$bias)
-	  nbcd.bench$range.check <- as.factor(ifelse(nbcd.bench$AGB.mean>=nbcd.bench$nbcd.min & nbcd.bench$AGB.mean<=nbcd.bench$nbcd.max, "*", NA))
+	  nbcd.bench$range.check <- as.factor(ifelse(nbcd.bench$model.mean>=nbcd.bench$nbcd.min & nbcd.bench$model.mean<=nbcd.bench$nbcd.max, "*", NA))
 	  summary(nbcd.bench)
 	  
 	  write.csv(nbcd.bench, file.path(out.dir, "Biomass_NBCD_ModelBenchmarks.csv"), row.names=F)
@@ -524,8 +531,8 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   		geom_hline(aes(yintercept=nbcd.mean+nbcd.sd), color="gray50", size=1, linetype="solid") +
   		geom_hline(aes(yintercept=nbcd.max), color="red", size=1, linetype="dashed") +
   	  geom_hline(aes(yintercept=nbcd.min), color="red", size=1, linetype="dashed") +   
-  		geom_pointrange(aes(x=Model.Order, y=AGB.mean, ymin=AGB.mean-AGB.sd, ymax=AGB.mean+AGB.sd, color=Model.Order), size=1.5) +
-  		scale_y_continuous(name="AGB (kgC m-2)", limits=c(0,max(nbcd.bench$AGB.mean+nbcd.bench$AGB.sd, na.rm=T))) +
+  		geom_pointrange(aes(x=Model.Order, y=model.mean, ymin=model.mean-model.sd, ymax=model.mean+model.sd, color=Model.Order), size=1.5) +
+  		scale_y_continuous(name="AGB (kgC m-2)", limits=c(0,max(nbcd.bench$model.mean+nbcd.bench$model.sd, na.rm=T))) +
   		scale_x_discrete(name="Model") +
   		scale_color_manual(values=paste(model.colors$color), name="Model") + 
   		# scale_alpha_manual(values=c(1, 0.5), name="NBCD Range") +
@@ -541,7 +548,7 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	    # geom_hline(aes(yintercept=nbcd.mean-nbcd.sd), color="gray50", size=1, linetype="solid") +
 	    # geom_hline(aes(yintercept=nbcd.mean+nbcd.sd), color="gray50", size=1, linetype="solid") +
 	    geom_pointrange(aes(x=Site, y=nbcd.mean, ymin=nbcd.mean-nbcd.sd, ymax=nbcd.mean+nbcd.sd), size=1.25) +
-	    geom_pointrange(aes(x=Site, y=AGB.mean, ymin=AGB.mean-AGB.sd, ymax=AGB.mean+AGB.sd, color=Model.Order), size=1.25) +
+	    geom_pointrange(aes(x=Site, y=model.mean, ymin=model.mean-model.sd, ymax=model.mean+model.sd, color=Model.Order), size=1.25) +
 	    scale_y_continuous(name="AGB (kgC m-2)") +
 	    scale_x_discrete(name="Model") +
 	    scale_color_manual(values=paste(model.colors$color), name="Model", guid=guide_legend(ncol=2)) + 
@@ -551,12 +558,12 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  dev.off()
 	  
 	  # Lookign at some quick summary stats by model
-	  nbcd.performance <- aggregate(nbcd.bench[,c("bias", "bias.sd")],
-									by=nbcd.bench[,c("Model", "Model.Order")],
-									FUN=mean, na.rm=T)
-	  nbcd.performance[,c("SD.bias", "SD.bias.sd")] <- aggregate(nbcd.bench[,c("bias", "bias.sd")],
-																 by=nbcd.bench[,c("Model", "Model.Order")],
-																 FUN=sd, na.rm=T)[,c("bias", "bias.sd")]
+	  nbcd.performance <- aggregate(nbcd.bench[,c("nbcd.mean", "model.mean", "bias", "bias.abs")],
+	                                by=nbcd.bench[,c("Model", "Model.Order")],
+	                                FUN=mean, na.rm=T)
+	  nbcd.performance[,c("nbcd.sd", "model.sd", "bias.sd", "bias.abs.sd")] <- aggregate(nbcd.bench[,c("nbcd.mean", "model.mean", "bias", "bias.abs")],
+	                                                                                    by=nbcd.bench[,c("Model", "Model.Order")],
+	                                                                                    FUN=sd, na.rm=T)[,c("nbcd.mean", "model.mean", "bias", "bias.abs")]
 	  nbcd.performance
 	  # On average, JULES-TRIFFID had the the lowest bias, but CLM was the most consistent in it's bias (lowest SD.bias)
 	  write.csv(nbcd.performance, file.path(out.dir, "Biomass_NBCD_ModelBenchmarks_Summary.csv"), row.names=F)
@@ -575,21 +582,21 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     
     # Stacking everything together to make the benchmarking easier
     flux.stack <- stack(flux[,c("NEE", "RE", "GPP")])
-    names(flux.stack) <- c("Tower", "Flux")
+    names(flux.stack) <- c("tower.mean", "Flux")
     flux.stack[,c("Site", "TowerName", "Year")] <- flux[,c("SITE", "SiteName", "YEAR")]
     summary(flux.stack)
     
     summary(ecosys)
     ecosys$RE <- ecosys$AutoResp + ecosys$HeteroResp
     ecosys.stack <- stack(ecosys[ecosys$Year>=min(flux.stack$Year), c("GPP", "NEE", "RE")])
-    names(ecosys.stack) <- c("Flux.Model", "Flux")
+    names(ecosys.stack) <- c("model.mean", "Flux")
     ecosys.stack[,c("Model", "Model.Order", "Site", "Year")] <- ecosys[ecosys$Year>=min(flux.stack$Year), c("Model", "Model.Order", "Site", "Year")]
     
     flux.mod <- merge(flux.stack, ecosys.stack, all.x=T, all.y=F)
-    flux.mod$Flux.Model <- flux.mod$Flux.Model*60*60*24*365.25 # Change to kgC m-2 s-1 to kgC m-2 yr-1
+    flux.mod$model.mean <- flux.mod$model.mean*60*60*24*365.25 # Change to kgC m-2 s-1 to kgC m-2 yr-1
     summary(flux.mod)
     
-    flux.mod$mod.bias <- flux.mod$Flux.Model - flux.mod$Tower
+    flux.mod$mod.bias <- flux.mod$model.mean - flux.mod$tower.mean
     flux.mod$mod.bias.abs <- abs(flux.mod$mod.bias)
     summary(flux.mod)
     write.csv(flux.mod, file.path(out.dir, "Fluxes_FluxTowers_ModelBenchmarks.csv"), row.names=F)
@@ -598,9 +605,9 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "NEE_FluxTowers_TimeSeries.png"), height=8, width=10, units="in", res=180)
     ggplot(data=flux.mod[flux.mod$Flux=="NEE",]) +
       facet_grid(Site~.) +
-      geom_line(aes(x=Year, y=Flux.Model, color=Model.Order), size=0.75) +
-      geom_line(aes(x=Year, y=Tower, linetype=TowerName), size=2) +
-      geom_hline(yintercept=0, linetype="dashed", color="red") +
+      geom_line(aes(x=Year, y=model.mean, color=Model.Order), size=0.75) +
+      geom_line(aes(x=Year, y=tower.mean, linetype=TowerName), size=2) +
+      geom_hline(yintercept=0, linetype="dashed", color="black") +
       scale_y_continuous(name="Flux kgC m-2 yr-1") +
       scale_x_continuous(name="Year") +
       scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -611,8 +618,8 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "RE_FluxTowers_TimeSeries.png"), height=8, width=10, units="in", res=180)
     ggplot(data=flux.mod[flux.mod$Flux=="RE",]) +
       facet_grid(Site~.) +
-      geom_line(aes(x=Year, y=EcosysResp, color=Model.Order), size=0.75) +
-      geom_line(aes(x=Year, y=RE.tower, linetype=TowerName), size=2) +
+      geom_line(aes(x=Year, y=model.mean, color=Model.Order), size=0.75) +
+      geom_line(aes(x=Year, y=tower.mean, linetype=TowerName), size=2) +
       scale_y_continuous(name="RE kgC m-2 yr-1") +
       scale_x_continuous(name="Year") +
       scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -623,8 +630,8 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "GPP_FluxTowers_TimeSeries.png"), height=8, width=10, units="in", res=180)
     ggplot(data=flux.mod[flux.mod$Flux=="GPP",]) +
       facet_grid(Site~.) +
-      geom_line(aes(x=Year, y=GPP, color=Model.Order), size=0.75) +
-      geom_line(aes(x=Year, y=GPP.tower, linetype=TowerName), size=2) +
+      geom_line(aes(x=Year, y=model.mean, color=Model.Order), size=0.75) +
+      geom_line(aes(x=Year, y=tower.mean, linetype=TowerName), size=2) +
       scale_y_continuous(name="GPP kgC m-2 yr-1") +
       scale_x_continuous(name="Year") +
       scale_color_manual(values=paste(model.colors$color), name="Model") + 
@@ -634,37 +641,37 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     
     # Reducing dimensions so that we can get some summary statistics
     # Get rid of multiple towers
-    flux.mod2 <- aggregate(flux.mod[,c("Tower", "Flux.Model", "mod.bias", "mod.bias.abs")],
+    flux.mod2 <- aggregate(flux.mod[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                            by=flux.mod[,c("Flux", "Site", "Model", "Model.Order", "Year")],
                            FUN=mean, na.rm=T)
     summary(flux.mod2)
     
     # Get rid of multiple years
-    flux.mod3 <- aggregate(flux.mod2[,c("Tower", "Flux.Model", "mod.bias", "mod.bias.abs")],
+    flux.mod3 <- aggregate(flux.mod2[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                            by=flux.mod2[,c("Flux", "Site", "Model", "Model.Order")],
                            FUN=mean, na.rm=T)
     summary(flux.mod3)
     
     
     # Getting the average bias for each model
-    flux.mod.mod <- aggregate(flux.mod3[,c("mod.bias", "mod.bias.abs")],
-                           by=flux.mod3[,c("Flux", "Model", "Model.Order")],
-                           FUN=mean, na.rm=T)
-    flux.mod.mod[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(flux.mod3[,c("mod.bias", "mod.bias.abs")],
-                                                                    by=flux.mod3[,c("Flux", "Model", "Model.Order")],
-                                                                    FUN=sd, na.rm=T)[,c("mod.bias", "mod.bias.abs")]
+    flux.mod.mod <- aggregate(flux.mod3[,c("tower.mean", "model.mean","mod.bias", "mod.bias.abs")],
+                              by=flux.mod3[,c("Flux", "Model", "Model.Order")],
+                              FUN=mean, na.rm=T)
+    flux.mod.mod[,c("tower.sd", "model.sd","mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(flux.mod3[,c("tower.mean", "model.mean","mod.bias", "mod.bias.abs")],
+                                                                                           by=flux.mod3[,c("Flux", "Model", "Model.Order")],
+                                                                                           FUN=sd, na.rm=T)[,c("tower.mean", "model.mean","mod.bias", "mod.bias.abs")]
     flux.mod.mod[flux.mod.mod$Flux=="NEE",]
     flux.mod.mod[flux.mod.mod$Flux=="GPP",]
     flux.mod.mod[flux.mod.mod$Flux=="RE",]
     write.csv(flux.mod.mod, file.path(out.dir, "Fluxes_FluxTowers_ModelBenchmarks_Summary.csv"), row.names=F)
     
     # Getting the average bias for each site
-    flux.mod.site <- aggregate(flux.mod3[,c("mod.bias", "mod.bias.abs")],
-                              by=flux.mod3[,c("Flux", "Site")],
-                              FUN=mean, na.rm=T)
-    flux.mod.site[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(flux.mod3[,c("mod.bias", "mod.bias.abs")],
-                                                                    by=flux.mod3[,c("Flux", "Site")],
-                                                                    FUN=sd, na.rm=T)[,c("mod.bias", "mod.bias.abs")]
+    flux.mod.site <- aggregate(flux.mod3[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+                               by=flux.mod3[,c("Flux", "Site")],
+                               FUN=mean, na.rm=T)
+    flux.mod.site[,c("tower.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(flux.mod3[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+                                                                                             by=flux.mod3[,c("Flux", "Site")],
+                                                                                             FUN=sd, na.rm=T)[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")]
     flux.mod.site[flux.mod.site$Flux=="NEE",]
     flux.mod.site[flux.mod.site$Flux=="GPP",]
     flux.mod.site[flux.mod.site$Flux=="RE",]
@@ -677,19 +684,20 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   # ------------------
   {
     modis <- read.csv(file.path(out.dir, "MODIS_year_sites_summary.csv"))
+    names(modis) <- c("Site", "Var", "Year", "modis.mean", "modis.sd", "modis.min", "modis.max")
     summary(modis)
     
     summary(ecosys)
     ecosys.stack <- stack(ecosys[ecosys$Year>=min(modis$Year), c("GPP", "LAI")])
-    names(ecosys.stack) <- c("Out.Model", "Var")
+    names(ecosys.stack) <- c("model.mean", "Var")
     ecosys.stack[,c("Model", "Model.Order", "Site", "Year")] <- ecosys[ecosys$Year>=min(modis$Year), c("Model", "Model.Order", "Site", "Year")]
     summary(ecosys.stack)
 
     modis.mod <- merge(modis, ecosys.stack, all.x=T, all.y=F)
-    modis.mod[modis.mod$Var=="GPP",c("Out.Model", "mean", "sd", "min", "max")] <- modis.mod[modis.mod$Var=="GPP",c("Out.Model", "mean", "sd", "min", "max")]*60*60*24*365.25 # Change GPP only to kgC m-2 s-1 to kgC m-2 yr-1
+    modis.mod[modis.mod$Var=="GPP",c("model.mean", "modis.mean", "modis.sd", "modis.min", "modis.max")] <- modis.mod[modis.mod$Var=="GPP",c("model.mean", "modis.mean", "modis.sd", "modis.min", "modis.max")]*60*60*24*365.25 # Change GPP only to kgC m-2 s-1 to kgC m-2 yr-1
     summary(modis.mod)
 
-    modis.mod$mod.bias <- modis.mod$Out.Model - modis.mod$mean
+    modis.mod$mod.bias <- modis.mod$model.mean - modis.mod$modis.mean
     modis.mod$mod.bias.abs <- abs(modis.mod$mod.bias)
     summary(modis.mod)
     write.csv(modis.mod, file.path(out.dir, "MODIS_ModelBenchmarks.csv"), row.names=F)
@@ -700,10 +708,10 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "LAI_MODIS_TimeSeries.png"), height=8, width=10, units="in", res=180)
     ggplot(data=modis.mod[modis.mod$Var=="LAI",]) +
       facet_wrap(~Site) +
-      geom_line(aes(x=Year, y=Out.Model, color=Model.Order), size=0.5) +
-      geom_ribbon(aes(x=Year, ymin=min, ymax=max), alpha=0.5) +
-      geom_ribbon(aes(x=Year, ymin=mean-sd, ymax=mean+sd), alpha=0.25) +
-      geom_line(aes(x=Year, y=mean), size=1) +
+      geom_ribbon(aes(x=Year, ymin=modis.min, ymax=modis.max), alpha=0.5) +
+      geom_ribbon(aes(x=Year, ymin=modis.mean-modis.sd, ymax=modis.mean+modis.sd), alpha=0.25) +
+      geom_line(aes(x=Year, y=modis.mean), size=1) +
+      geom_line(aes(x=Year, y=model.mean, color=Model.Order), size=0.5) +
       scale_y_continuous(name="LAI m2 m-2") +
       scale_x_continuous(name="Year", limits=c(2003, 2010), expand=c(0,0)) +
       scale_color_manual(values=paste(model.colors$color), name="Model") +
@@ -713,10 +721,10 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     png(file.path(fig.dir, "GPP_MODIS_TimeSeries.png"), height=8, width=10, units="in", res=180)
     ggplot(data=modis.mod[modis.mod$Var=="GPP",]) +
       facet_wrap(~Site) +
-      geom_line(aes(x=Year, y=Out.Model, color=Model.Order), size=0.5) +
-      geom_ribbon(aes(x=Year, ymin=min, ymax=max), alpha=0.33) +
-      geom_ribbon(aes(x=Year, ymin=mean-sd, ymax=mean+sd), alpha=0.5) +
-      geom_line(aes(x=Year, y=mean), size=1) +
+      geom_ribbon(aes(x=Year, ymin=modis.min, ymax=modis.max), alpha=0.33) +
+      geom_ribbon(aes(x=Year, ymin=modis.mean-modis.sd, ymax=modis.mean+modis.sd), alpha=0.5) +
+      geom_line(aes(x=Year, y=modis.mean), size=1) +
+      geom_line(aes(x=Year, y=model.mean, color=Model.Order), size=0.5) +
       scale_y_continuous(name="GPP kgC m-2 yr-1") +
       scale_x_continuous(name="Year", limits=c(2003, 2010), expand=c(0,0)) +
       scale_color_manual(values=paste(model.colors$color), name="Model") +
@@ -725,30 +733,30 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 
     # Reducing dimensions so that we can get some summary statistics
     # Get rid of multiple years
-    modis.mod3 <- aggregate(modis.mod[,c("mean", "Out.Model", "mod.bias", "mod.bias.abs")],
+    modis.mod3 <- aggregate(modis.mod[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                            by=modis.mod[,c("Var", "Site", "Model", "Model.Order")],
                            FUN=mean, na.rm=T)
     summary(modis.mod3)
 
 
     # Getting the average bias for each model
-    modis.mod.mod <- aggregate(modis.mod3[,c("mod.bias", "mod.bias.abs")],
-                              by=modis.mod3[,c("Var", "Model", "Model.Order")],
-                              FUN=mean, na.rm=T)
-    modis.mod.mod[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(modis.mod3[,c("mod.bias", "mod.bias.abs")],
-                                                                    by=modis.mod3[,c("Var", "Model", "Model.Order")],
-                                                                    FUN=sd, na.rm=T)[,c("mod.bias", "mod.bias.abs")]
+    modis.mod.mod <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+                               by=modis.mod3[,c("Var", "Model", "Model.Order")],
+                               FUN=mean, na.rm=T)
+    modis.mod.mod[,c("modis.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+                                                                                             by=modis.mod3[,c("Var", "Model", "Model.Order")],
+                                                                                             FUN=sd, na.rm=T)[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")]
     modis.mod.mod[modis.mod.mod$Var=="LAI",]
     modis.mod.mod[modis.mod.mod$Var=="GPP",]
     write.csv(modis.mod.mod, file.path(out.dir, "MODIS_ModelBenchmarks_Summary.csv"), row.names=F)
 
     # Getting the average bias for each site
-    modis.mod.site <- aggregate(modis.mod3[,c("mod.bias", "mod.bias.abs")],
-                               by=modis.mod3[,c("Var", "Site")],
-                               FUN=mean, na.rm=T)
-    modis.mod.site[,c("mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(modis.mod3[,c("mod.bias", "mod.bias.abs")],
+    modis.mod.site <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+                                by=modis.mod3[,c("Var", "Site")],
+                                FUN=mean, na.rm=T)
+    modis.mod.site[,c("modis.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
                                                                      by=modis.mod3[,c("Var", "Site")],
-                                                                     FUN=sd, na.rm=T)[,c("mod.bias", "mod.bias.abs")]
+                                                                     FUN=sd, na.rm=T)[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")]
     modis.mod.site[modis.mod.site$Var=="LAI",]
     modis.mod.site[modis.mod.site$Var=="GPP",]
     write.csv(modis, file.path(out.dir, "MODIS_ModelBenchmarks_Site.csv"), row.names=F)

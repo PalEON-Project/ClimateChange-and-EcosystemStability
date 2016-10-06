@@ -562,8 +562,8 @@ hips <- data.frame(Site = c( "PHA",  "PHO",  "PUN",  "PBL",  "PDL",  "PMB"),
   #    2.06. MODIS -- LAI, GPP
   # ------------------
   {
-    modis.lai <- read.csv(file.path(raw.dir, "MODIS", "Benchmarking_MODIS_LAI_SummaryStats.csv"))
-    modis.gpp <- read.csv(file.path(raw.dir, "MODIS", "Benchmarking_MODIS_GPP_SummaryStats.csv"))
+    modis.lai <- read.csv(file.path(raw.dir, "MODIS", "Benchmarking_LAI_MODIS_SummaryStats.csv"))
+    modis.gpp <- read.csv(file.path(raw.dir, "MODIS", "Benchmarking_GPP_MODIS_SummaryStats.csv"))
     modis.lai$Var = as.factor("LAI")
     modis.gpp$Var = as.factor("GPP")
     summary(modis.lai)
@@ -585,15 +585,17 @@ hips <- data.frame(Site = c( "PHA",  "PHO",  "PUN",  "PBL",  "PDL",  "PMB"),
     # Convert GPP from kg/m2/8-days to kg/m2/s
     modis[modis$Var=="GPP",c("mean", "sd", "min", "max")] <- modis[modis$Var=="GPP",c("mean", "sd", "min", "max")] / (8*24*60*60) 
   
-    png(file.path(fig.dir, "ModisData_Year.png"), height=10, width=8, units="in", res=220)
+    modis$Site <- factor(modis$Site, levels=c("PDL", "PBL", "PUN", "PMB", "PHA", "PHO"))
+
+    png(file.path(fig.dir, "ModisData_Year.png"), height=8, width=10, units="in", res=220)
     ggplot(data=modis) +
-      facet_wrap(~Var, scales="free", ncol=1) +
+      facet_grid(Var~Site, scales="free_y") +
       geom_ribbon(aes(x=Year, ymin=min, ymax=max, fill=Site), alpha=0.5) +
       # geom_ribbon(aes(x=Year, ymin=mean-sd, ymax=max+sd, fill=Site), alpha=0.8) +
-      geom_line(aes(x=Year, y=mean, color=Site)) +
-      geom_point(aes(x=Year, y=mean, color=Site)) +
-      scale_x_continuous(expand=c(0,0), breaks=seq(min(modis$Year)+1, max(modis$Year), by=2)) +
-      theme_bw()
+      geom_line(aes(x=Year, y=mean, color=Site), size=1.5) +
+      geom_point(aes(x=Year, y=mean, color=Site), size=2) +
+      scale_x_continuous(expand=c(0,0), breaks=seq(min(modis$Year)+1, max(modis$Year), by=4)) +
+      theme_bw() 
     dev.off()
     
     write.csv(modis, file.path(out.dir, "MODIS_year_sites_summary.csv"), row.names=F)
