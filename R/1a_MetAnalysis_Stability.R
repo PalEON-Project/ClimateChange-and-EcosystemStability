@@ -155,7 +155,7 @@ calc.stability <- function(x){
 
 # Adding lat/lon to the hips data frame
 for(v in met.vars){
-  nc.v <- nc_open(file.path(dat.out, paste0(v, ".nc")))
+  nc.v <- nc_open(file.path(out.dir, paste0(v, ".nc")))
 
   # Running The Derivative calculation on each metvar
   years <- 850:2010
