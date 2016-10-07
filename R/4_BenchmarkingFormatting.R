@@ -443,13 +443,13 @@ hips <- data.frame(Site = c( "PHA",  "PHO",  "PUN",  "PBL",  "PDL",  "PMB"),
     # nbcd2 <- crop(nbcd, paleon2, filename=file.path(raw.dir, "NBCD_countrywide_biomass_240m_raster", "NBCD_paleon_domain"), overwrite=T)
     # plot(nbcd2)
   
-    # Transforming the cropped grid to latlon and from Mg/cell to MgC/Ha and saving it to work with
+    # Transforming the cropped grid to latlon 
     # nbcd3 <- projectRaster(nbcd2, crs=projection(paleon), filename=file.path(raw.dir, "NBCD_countrywide_biomass_240m_raster", "NBCD_paleon_latlon"), overwrite=T)
     # nbcd3
     
     nbcd3 <- raster(file.path(raw.dir, "NBCD_countrywide_biomass_240m_raster", "NBCD_paleon_latlon"))
     nbcd3
-    plot(nbcd3)
+    # plot(nbcd3)
     
     hips.bm <- data.frame(Site=hips$Site)
     # Extracting the NBCD values just in the 0.5 x 0.5-degree cell for each site
@@ -459,10 +459,10 @@ hips <- data.frame(Site = c( "PHA",  "PHO",  "PUN",  "PBL",  "PDL",  "PMB"),
       site.ext <- extent(c(hips$lonmin[i], hips$lonmax[i], hips$latmin[i], hips$latmax[i]))
       bm.site <- crop(nbcd3, extent(c(hips$lonmin[i], hips$lonmax[i], hips$latmin[i], hips$latmax[i])), filename=file.path(raw.dir, "NBCD_countrywide_biomass_240m_raster", paste0("NBCD_", hips$Site[i])), overwrite=T)
   
-      hips.bm[i,"nbcd.mean"] <- mean(getValues(bm.site)/5.76*0.5*.1)     
-      hips.bm[i,"nbcd.sd"  ] <- sd(getValues(bm.site)/5.76*0.5*.1)     
-      hips.bm[i,"nbcd.min" ] <- min(getValues(bm.site)/5.76*0.5*.1)     
-      hips.bm[i,"nbcd.max" ] <- max(getValues(bm.site)/5.76*0.5*.1)     
+      hips.bm[i,"nbcd.mean"] <- mean(getValues(bm.site))/(240*240)*1e3*0.5     
+      hips.bm[i,"nbcd.sd"  ] <- sd(getValues(bm.site))/(240*240)*1e3*0.5
+      hips.bm[i,"nbcd.min" ] <- min(getValues(bm.site))/(240*240)*1e3*0.5
+      hips.bm[i,"nbcd.max" ] <- max(getValues(bm.site))/(240*240)*1e3*0.5
              
     } # extent=xmin, xmax, ymin, ymax
     hips.bm

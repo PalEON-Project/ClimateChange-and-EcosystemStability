@@ -182,6 +182,7 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   		} # End site loop
   		# Store some calculations
   		stepps2.pft[[mod]][,paste0(m, ".bias")] <- stepps2.pft[[mod]][,m]-stepps2.pft[[mod]][,"mean"]
+  		# stepps2.pft[[mod]][,paste0(m, ".bias.per")] <- (stepps2.pft[[mod]][,m])/stepps2.pft[[mod]][,"mean"]-1
   		stepps2.pft[[mod]][,paste0(m, ".check")] <- as.factor(ifelse(stepps2.pft[[mod]][,m]>=stepps2.pft[[mod]][,"lwr"] & stepps2.pft[[mod]][,m]<=stepps2.pft[[mod]][,"upr"], "*", NA))
 	  } # end model loop
   
@@ -210,6 +211,7 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   		  stepps.bench <- rbind(stepps.bench, dat.base)
   		}
 	  }
+	  stepps.bench$bias.per <- stepps.bench$bias/stepps.bench$stepps.mean
 	  stepps.bench$bias.abs <- abs(stepps.bench$bias)
 	  stepps.bench$CI.check <- as.factor(ifelse(stepps.bench$model.mean>=stepps.bench$stepps.lwr & stepps.bench$model.mean<=stepps.bench$stepps.upr, "*", NA))
 	  write.csv(stepps.bench, file.path(out.dir, "Composition_STEPPS2_ModelBenchmarks.csv"), row.names=F)
@@ -225,12 +227,12 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  dev.off()
 
 	  # Lookign at some quick summary stats by model
-	  stepps.bench2 <- aggregate(stepps.bench[,c("stepps.mean", "stepps.lwr", "stepps.upr", "model.mean", "bias", "bias.abs")],
+	  stepps.bench2 <- aggregate(stepps.bench[,c("stepps.mean", "stepps.lwr", "stepps.upr", "model.mean", "bias", "bias.per", "bias.abs")],
 								               by=stepps.bench[,c("Model", "site", "pft")],
 								               FUN=mean, na.rm=T)
-	  stepps.bench2[,c("stepps.sd", "model.sd", "bias.sd", "bias.abs.sd")] <- aggregate(stepps.bench[,c("stepps.mean", "model.mean", "bias", "bias.abs")],
+	  stepps.bench2[,c("stepps.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(stepps.bench[,c("stepps.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                                                                                    by=stepps.bench[,c("Model", "site", "pft")],
-	                                                                                    FUN=sd, na.rm=T)[,c("stepps.mean", "model.mean", "bias", "bias.abs")]
+	                                                                                    FUN=sd, na.rm=T)[,c("stepps.mean", "model.mean", "bias", "bias.per", "bias.abs")]
 	  stepps.bench2$CI <- as.factor(ifelse(stepps.bench2$model.mean>=stepps.bench2$stepps.lwr & stepps.bench2$model.mean<=stepps.bench2$stepps.upr, "in", "out"))
 	  stepps.bench2 <- merge(stepps.bench2, model.names[,c("Model", "Model.Order")], all.x=T)
 	  
@@ -247,12 +249,12 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
   		theme(axis.text.x=element_blank())
 	  dev.off()
 
-	  stepps.performance <- aggregate(stepps.bench2[,c("stepps.mean", "model.mean", "bias", "bias.abs")],
+	  stepps.performance <- aggregate(stepps.bench2[,c("stepps.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                                  by=stepps.bench2[,c("Model", "Model.Order")],
 	                                  FUN=mean, na.rm=T)
-	  stepps.performance[,c("stepps.sd", "model.sd", "bias.sd", "bias.abs.sd")] <- aggregate(stepps.bench2[,c("stepps.mean", "model.mean", "bias", "bias.abs")],
+	  stepps.performance[,c("stepps.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(stepps.bench2[,c("stepps.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                                                                                         by=stepps.bench2[,c("Model", "Model.Order")],
-	                                                                                         FUN=sd, na.rm=T)[,c("stepps.mean", "model.mean", "bias", "bias.abs")]
+	                                                                                         FUN=sd, na.rm=T)[,c("stepps.mean", "model.mean", "bias", "bias.per", "bias.abs")]
 	  stepps.performance
 	  # On average, JULES-STATIC & CLM-BGC (two static veg models) had the the lowest bias, 
 	  #  but CLM-LINKAGES, CLM-CN, and LPJ-WSL (two dynamic veg models) had the most consistent bias
@@ -343,8 +345,9 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     } # end model loop
 
     # # Store some calculations
-    setveg.pft$mod.bias <- setveg.pft$model.mean - setveg.pft$svcomp.mean
-    setveg.pft$mod.bias.abs <- abs(setveg.pft$mod.bias)
+    setveg.pft$bias <- setveg.pft$model.mean - setveg.pft$svcomp.mean
+    setveg.pft$bias.per <- setveg.pft$bias/setveg.pft$svcomp.mean
+    setveg.pft$bias.abs <- abs(setveg.pft$bias)
     setveg.pft$range.check <- as.factor(ifelse(setveg.pft$model.mean + 2*setveg.pft$model.sd>=setveg.pft$svcomp.lwr & setveg.pft$model.mean - 2*setveg.pft$model.sd<=setveg.pft$svcomp.upr,
                                                "*", NA))
     summary(setveg.pft)
@@ -379,25 +382,25 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     dev.off()
     
     # Getting the average bias for each model
-    setveg.mod <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    setveg.mod <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                             by=setveg.pft[,c("Model", "Model.Order")],
                             FUN=mean)
     
-    setveg.mod[,c("svcomp.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    setveg.mod[,c("svcomp.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                                                   by=setveg.pft[,c("Model", "Model.Order")],
-                                                                  FUN=sd)[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+                                                                  FUN=sd)[,c("svcomp.mean", "model.mean", "bias", "bias.per", "bias.abs")]
     setveg.mod
     write.csv(setveg.mod, file.path(out.dir, "Composition_SetVeg_ModelBenchmarks_Summary.csv"), row.names=F)
     
     # Getting the average bias for each model
-    setveg.site <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    setveg.site <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                              by=list(setveg.pft$Site),
                              FUN=mean)
     names(setveg.site)[1] <- "Site"
     
-    setveg.site[,c("svcomp.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    setveg.site[,c("svcomp.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(setveg.pft[,c("svcomp.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                                                    by=list(setveg.pft$Site),
-                                                                   FUN=sd)[,c("svcomp.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+                                                                   FUN=sd)[,c("svcomp.mean", "model.mean", "bias", "bias.per", "bias.abs")]
     setveg.site
     write.csv(setveg.site, file.path(out.dir, "Composition_SetVeg_SiteBenchmarks_Summary.csv"), row.names=F)
   }
@@ -425,8 +428,9 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  
 	  mod.svbiom <- merge(mod.svbiom, sv.biom)
 	  
-	  mod.svbiom$mod.bias <- mod.svbiom$model.mean - mod.svbiom$svbiom.mean
-	  mod.svbiom$mod.bias.abs <- abs(mod.svbiom$mod.bias)
+	  mod.svbiom$bias <- mod.svbiom$model.mean - mod.svbiom$svbiom.mean
+	  mod.svbiom$bias.per <- mod.svbiom$bias/mod.svbiom$svbiom.mean
+	  mod.svbiom$bias.abs <- abs(mod.svbiom$bias)
 	  summary(mod.svbiom)
 	  
 	  write.csv(mod.svbiom, file.path(out.dir, "Biomass_SetVeg_ModelBenchmarks.csv"), row.names=F)
@@ -462,25 +466,25 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  dev.off()
 	  
 	  # Getting the average bias for each model
-	  setveg.mod <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+	  setveg.mod <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                          by=mod.svbiom[,c("Model", "Model.Order")],
 	                          FUN=mean)
 	  
-	  setveg.mod[,c("svbiom.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+	  setveg.mod[,c("svbiom.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                                                                                         by=mod.svbiom[,c("Model", "Model.Order")],
-	                                                                                         FUN=sd)[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+	                                                                                         FUN=sd)[,c("svbiom.mean", "model.mean", "bias", "bias.per", "bias.abs")]
 	  setveg.mod
 	  write.csv(setveg.mod, file.path(out.dir, "Biomass_SetVeg_ModelBenchmarks_Summary.csv"), row.names=F)
 	  
 	  # Getting the average bias for each model
-	  setveg.site <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+	  setveg.site <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                           by=list(mod.svbiom$Site),
 	                           FUN=mean)
 	  names(setveg.site)[1] <- "Site"
 	  
-	  setveg.site[,c("svbiom.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+	  setveg.site[,c("svbiom.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(mod.svbiom[,c("svbiom.mean", "model.mean", "bias", "bias.per", "bias.abs")],
 	                                                                 by=list(mod.svbiom$Site),
-	                                                                 FUN=sd)[,c("svbiom.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+	                                                                 FUN=sd)[,c("svbiom.mean", "model.mean", "bias", "bias.per", "bias.abs")]
 	  setveg.site
 	  write.csv(setveg.site, file.path(out.dir, "Biomass_SetVeg_SiteBenchmarks_Summary.csv"), row.names=F)
   }
@@ -510,10 +514,24 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  nbcd.bench <- merge(nbcd.bench, bm.nbcd)
   
 	  # Calculating some statistics
-	  nbcd.bench$bias <- nbcd.bench$model.mean - nbcd.bench$nbcd.mean
+	  # NOTE: Calculating these off of the max value in the grid cell to get the values for the most in-tact forest of the region
+	  nbcd.bench1 <- nbcd.bench
+	  nbcd.bench1$Ref <- as.factor("mean")
+	  nbcd.bench1$bias <- nbcd.bench1$model.mean - nbcd.bench1$nbcd.mean
+	  nbcd.bench1$bias.sd <- nbcd.bench1$bias/nbcd.bench1$nbcd.sd
+	  nbcd.bench1$bias.per <- nbcd.bench1$bias/nbcd.bench1$nbcd.mean
+	  nbcd.bench1$bias.abs <- abs(nbcd.bench1$bias)
+	  
+	  nbcd.bench$Ref <- as.factor("max")
+	  nbcd.bench$bias <- nbcd.bench$model.mean - nbcd.bench$nbcd.max
 	  nbcd.bench$bias.sd <- nbcd.bench$bias/nbcd.bench$nbcd.sd
+	  nbcd.bench$bias.per <- nbcd.bench$bias/nbcd.bench$nbcd.max
 	  nbcd.bench$bias.abs <- abs(nbcd.bench$bias)
+
+	  nbcd.bench <- rbind(nbcd.bench, nbcd.bench1)
+
 	  nbcd.bench$range.check <- as.factor(ifelse(nbcd.bench$model.mean>=nbcd.bench$nbcd.min & nbcd.bench$model.mean<=nbcd.bench$nbcd.max, "*", NA))
+	  
 	  summary(nbcd.bench)
 	  
 	  write.csv(nbcd.bench, file.path(out.dir, "Biomass_NBCD_ModelBenchmarks.csv"), row.names=F)
@@ -558,12 +576,12 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 	  dev.off()
 	  
 	  # Lookign at some quick summary stats by model
-	  nbcd.performance <- aggregate(nbcd.bench[,c("nbcd.mean", "model.mean", "bias", "bias.abs")],
-	                                by=nbcd.bench[,c("Model", "Model.Order")],
+	  nbcd.performance <- aggregate(nbcd.bench[,c("nbcd.mean", "model.mean", "bias", "bias.per", "bias.abs")],
+	                                by=nbcd.bench[,c("Model", "Model.Order", "Ref")],
 	                                FUN=mean, na.rm=T)
-	  nbcd.performance[,c("nbcd.sd", "model.sd", "bias.sd", "bias.abs.sd")] <- aggregate(nbcd.bench[,c("nbcd.mean", "model.mean", "bias", "bias.abs")],
-	                                                                                    by=nbcd.bench[,c("Model", "Model.Order")],
-	                                                                                    FUN=sd, na.rm=T)[,c("nbcd.mean", "model.mean", "bias", "bias.abs")]
+	  nbcd.performance[,c("nbcd.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(nbcd.bench[,c("nbcd.mean", "model.mean", "bias", "bias.per", "bias.abs")],
+	                                                                                    by=nbcd.bench[,c("Model", "Model.Order", "Ref")],
+	                                                                                    FUN=sd, na.rm=T)[,c("nbcd.mean", "model.mean", "bias", "bias.per", "bias.abs")]
 	  nbcd.performance
 	  # On average, JULES-TRIFFID had the the lowest bias, but CLM was the most consistent in it's bias (lowest SD.bias)
 	  write.csv(nbcd.performance, file.path(out.dir, "Biomass_NBCD_ModelBenchmarks_Summary.csv"), row.names=F)
@@ -596,8 +614,9 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     flux.mod$model.mean <- flux.mod$model.mean*60*60*24*365.25 # Change to kgC m-2 s-1 to kgC m-2 yr-1
     summary(flux.mod)
     
-    flux.mod$mod.bias <- flux.mod$model.mean - flux.mod$tower.mean
-    flux.mod$mod.bias.abs <- abs(flux.mod$mod.bias)
+    flux.mod$bias <- flux.mod$model.mean - flux.mod$tower.mean
+    flux.mod$bias.per <- flux.mod$bias/flux.mod$tower.mean
+    flux.mod$bias.abs <- abs(flux.mod$bias)
     summary(flux.mod)
     write.csv(flux.mod, file.path(out.dir, "Fluxes_FluxTowers_ModelBenchmarks.csv"), row.names=F)
     
@@ -641,37 +660,37 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     
     # Reducing dimensions so that we can get some summary statistics
     # Get rid of multiple towers
-    flux.mod2 <- aggregate(flux.mod[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    flux.mod2 <- aggregate(flux.mod[,c("tower.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                            by=flux.mod[,c("Flux", "Site", "Model", "Model.Order", "Year")],
                            FUN=mean, na.rm=T)
     summary(flux.mod2)
     
     # Get rid of multiple years
-    flux.mod3 <- aggregate(flux.mod2[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    flux.mod3 <- aggregate(flux.mod2[,c("tower.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                            by=flux.mod2[,c("Flux", "Site", "Model", "Model.Order")],
                            FUN=mean, na.rm=T)
     summary(flux.mod3)
     
     
     # Getting the average bias for each model
-    flux.mod.mod <- aggregate(flux.mod3[,c("tower.mean", "model.mean","mod.bias", "mod.bias.abs")],
+    flux.mod.mod <- aggregate(flux.mod3[,c("tower.mean", "model.mean","bias", "bias.per", "bias.abs")],
                               by=flux.mod3[,c("Flux", "Model", "Model.Order")],
                               FUN=mean, na.rm=T)
-    flux.mod.mod[,c("tower.sd", "model.sd","mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(flux.mod3[,c("tower.mean", "model.mean","mod.bias", "mod.bias.abs")],
+    flux.mod.mod[,c("tower.sd", "model.sd","bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(flux.mod3[,c("tower.mean", "model.mean","bias", "bias.per", "bias.abs")],
                                                                                            by=flux.mod3[,c("Flux", "Model", "Model.Order")],
-                                                                                           FUN=sd, na.rm=T)[,c("tower.mean", "model.mean","mod.bias", "mod.bias.abs")]
+                                                                                           FUN=sd, na.rm=T)[,c("tower.mean", "model.mean","bias", "bias.per", "bias.abs")]
     flux.mod.mod[flux.mod.mod$Flux=="NEE",]
     flux.mod.mod[flux.mod.mod$Flux=="GPP",]
     flux.mod.mod[flux.mod.mod$Flux=="RE",]
     write.csv(flux.mod.mod, file.path(out.dir, "Fluxes_FluxTowers_ModelBenchmarks_Summary.csv"), row.names=F)
     
     # Getting the average bias for each site
-    flux.mod.site <- aggregate(flux.mod3[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    flux.mod.site <- aggregate(flux.mod3[,c("tower.mean", "model.mean", "bias", "bias.abs")],
                                by=flux.mod3[,c("Flux", "Site")],
                                FUN=mean, na.rm=T)
-    flux.mod.site[,c("tower.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(flux.mod3[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    flux.mod.site[,c("tower.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(flux.mod3[,c("tower.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                                                                              by=flux.mod3[,c("Flux", "Site")],
-                                                                                             FUN=sd, na.rm=T)[,c("tower.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+                                                                                             FUN=sd, na.rm=T)[,c("tower.mean", "model.mean", "bias", "bias.per", "bias.abs")]
     flux.mod.site[flux.mod.site$Flux=="NEE",]
     flux.mod.site[flux.mod.site$Flux=="GPP",]
     flux.mod.site[flux.mod.site$Flux=="RE",]
@@ -697,8 +716,9 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
     modis.mod[modis.mod$Var=="GPP",c("model.mean", "modis.mean", "modis.sd", "modis.min", "modis.max")] <- modis.mod[modis.mod$Var=="GPP",c("model.mean", "modis.mean", "modis.sd", "modis.min", "modis.max")]*60*60*24*365.25 # Change GPP only to kgC m-2 s-1 to kgC m-2 yr-1
     summary(modis.mod)
 
-    modis.mod$mod.bias <- modis.mod$model.mean - modis.mod$modis.mean
-    modis.mod$mod.bias.abs <- abs(modis.mod$mod.bias)
+    modis.mod$bias <- modis.mod$model.mean - modis.mod$modis.mean
+    modis.mod$bias.per <- modis.mod$bias/modis.mod$modis.mean
+    modis.mod$bias.abs <- abs(modis.mod$bias)
     summary(modis.mod)
     write.csv(modis.mod, file.path(out.dir, "MODIS_ModelBenchmarks.csv"), row.names=F)
 
@@ -733,30 +753,30 @@ model.names$Mod.Type    <- recode(model.names$Model, "'ed2'='ED2'; 'ed2.lu'='ED2
 
     # Reducing dimensions so that we can get some summary statistics
     # Get rid of multiple years
-    modis.mod3 <- aggregate(modis.mod[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    modis.mod3 <- aggregate(modis.mod[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                            by=modis.mod[,c("Var", "Site", "Model", "Model.Order")],
                            FUN=mean, na.rm=T)
     summary(modis.mod3)
 
 
     # Getting the average bias for each model
-    modis.mod.mod <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    modis.mod.mod <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                by=modis.mod3[,c("Var", "Model", "Model.Order")],
                                FUN=mean, na.rm=T)
-    modis.mod.mod[,c("modis.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    modis.mod.mod[,c("modis.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                                                                              by=modis.mod3[,c("Var", "Model", "Model.Order")],
-                                                                                             FUN=sd, na.rm=T)[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+                                                                                             FUN=sd, na.rm=T)[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")]
     modis.mod.mod[modis.mod.mod$Var=="LAI",]
     modis.mod.mod[modis.mod.mod$Var=="GPP",]
     write.csv(modis.mod.mod, file.path(out.dir, "MODIS_ModelBenchmarks_Summary.csv"), row.names=F)
 
     # Getting the average bias for each site
-    modis.mod.site <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    modis.mod.site <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                 by=modis.mod3[,c("Var", "Site")],
                                 FUN=mean, na.rm=T)
-    modis.mod.site[,c("modis.sd", "model.sd", "mod.bias.sd", "mod.bias.abs.sd")] <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")],
+    modis.mod.site[,c("modis.sd", "model.sd", "bias.sd", "bias.per.sd", "bias.abs.sd")] <- aggregate(modis.mod3[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")],
                                                                      by=modis.mod3[,c("Var", "Site")],
-                                                                     FUN=sd, na.rm=T)[,c("modis.mean", "model.mean", "mod.bias", "mod.bias.abs")]
+                                                                     FUN=sd, na.rm=T)[,c("modis.mean", "model.mean", "bias", "bias.per", "bias.abs")]
     modis.mod.site[modis.mod.site$Var=="LAI",]
     modis.mod.site[modis.mod.site$Var=="GPP",]
     write.csv(modis, file.path(out.dir, "MODIS_ModelBenchmarks_Site.csv"), row.names=F)

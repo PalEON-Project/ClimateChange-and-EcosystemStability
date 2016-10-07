@@ -69,6 +69,14 @@ rm(list=ls())
   model.colors $Model.Order <- recode(model.colors$Model, "'CLM4.5-BGC'='01'; 'CLM4.5-CN'='02'; 'ED2'='03'; 'ED2-LU'='04';  'JULES-STATIC'='05'; 'JULES-TRIFFID'='06'; 'LINKAGES'='07'; 'LPJ-GUESS'='08'; 'LPJ-WSL'='09'; 'SiBCASA'='10'")
   levels(model.colors$Model.Order)[1:10] <- c("CLM-BGC", "CLM-CN", "ED2", "ED2-LU", "JULES-STATIC", "JULES-TRIFFID", "LINKAGES", "LPJ-GUESS", "LPJ-WSL", "SiBCASA")
   model.colors <- model.colors[order(model.colors$Model.Order),]
+
+  model.colors$Model.Family <- ifelse(substr(model.colors$Model,1,3)=="CLM", "CLM", 
+                                      ifelse(substr(model.colors$Model, 1, 3)=="ED2", "ED2",
+                                             ifelse(substr(model.colors$Model, 1, 3)=="LPJ", "LPJ",
+                                                    ifelse(substr(model.colors$Model,1,5)=="JULES", "JULES",
+                                                           toupper(model.colors$Model)))))
+  model.colors$Model.Family <- as.factor(model.colors$Model.Family)
+  model.colors$shape <- as.numeric(model.colors$Model.Family)
   model.colors
   
   # Getting a list of the models
@@ -96,78 +104,60 @@ rm(list=ls())
 #    Note: Loading just the model performance scores to simplify things
 # -------------------------------------------
 {
+  cols.keep <- c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.per", "bias.abs", "bias.sd", "bias.per.sd", "bias.abs.sd")
+  
   # 2.01. Composition -- STEPPS 1 (contibutor/contact: Andria)
   comp.stepps <- read.csv(file.path(bench.dir, "Composition_STEPPS2_ModelBenchmarks_Summary.csv"))
   comp.stepps$Dataset <- as.factor("STEPPS")
   comp.stepps$Var <- as.factor("Fcomp")
   names(comp.stepps)[which(names(comp.stepps)=="stepps.mean")] <- "bench.mean"
   names(comp.stepps)[which(names(comp.stepps)=="stepps.sd")]   <- "bench.sd"
-  comp.stepps <- comp.stepps[,c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.abs", "bias.sd", "bias.abs.sd")]
+  comp.stepps <- comp.stepps[,cols.keep]
   comp.stepps
   
   # 2.02. Composition -- SetVeg (contributor/contact: Simon? Jody?)
   comp.setveg <- read.csv(file.path(bench.dir, "Composition_SetVeg_ModelBenchmarks_Summary.csv"))
   comp.setveg$Dataset <- as.factor("SetVeg")
   comp.setveg$Var <- as.factor("Fcomp")
-  names(comp.setveg)[which(names(comp.setveg)=="mod.bias")] <- "bias"
-  names(comp.setveg)[which(names(comp.setveg)=="mod.bias.abs")] <- "bias.abs"
-  names(comp.setveg)[which(names(comp.setveg)=="mod.bias.sd")] <- "bias.sd"
-  names(comp.setveg)[which(names(comp.setveg)=="mod.bias.abs.sd")] <- "bias.abs.sd"
   names(comp.setveg)[which(names(comp.setveg)=="svcomp.mean")] <- "bench.mean"
   names(comp.setveg)[which(names(comp.setveg)=="svcomp.sd")]   <- "bench.sd"
-  comp.setveg <- comp.setveg[,c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.abs", "bias.sd", "bias.abs.sd")]
+  comp.setveg <- comp.setveg[,cols.keep]
   comp.setveg
   
   # 2.03. Biomass -- SetVeg  (contributor/contact: Jody? Kelly?)
   biom.setveg <- read.csv(file.path(bench.dir, "Biomass_SetVeg_ModelBenchmarks_Summary.csv"))
   biom.setveg$Dataset <- as.factor("SetVeg")
   biom.setveg$Var <- as.factor("AGB")
-  names(biom.setveg)[which(names(biom.setveg)=="mod.bias")] <- "bias"
-  names(biom.setveg)[which(names(biom.setveg)=="mod.bias.abs")] <- "bias.abs"
-  names(biom.setveg)[which(names(biom.setveg)=="mod.bias.sd")] <- "bias.sd"
-  names(biom.setveg)[which(names(biom.setveg)=="mod.bias.abs.sd")] <- "bias.abs.sd"
   names(biom.setveg)[which(names(biom.setveg)=="svbiom.mean")] <- "bench.mean"
   names(biom.setveg)[which(names(biom.setveg)=="svbiom.sd")]   <- "bench.sd"
-  biom.setveg <- biom.setveg[,c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.abs", "bias.sd", "bias.abs.sd")]
+  biom.setveg <- biom.setveg[,cols.keep]
   biom.setveg
   
   # 2.04. Biomass -- NBCD (contributor/contact: Christy)
   biom.nbcd <- read.csv(file.path(bench.dir, "Biomass_NBCD_ModelBenchmarks_Summary.csv"))
-  biom.nbcd$Dataset <- as.factor("NBCD")
+  biom.nbcd$Dataset <- as.factor(paste("NBCD", biom.nbcd$Ref, sep="."))
   biom.nbcd$Var <- as.factor("AGB")
-  names(biom.nbcd)[which(names(biom.nbcd)=="mod.bias")] <- "bias"
-  names(biom.nbcd)[which(names(biom.nbcd)=="mod.bias.abs")] <- "bias.abs"
-  names(biom.nbcd)[which(names(biom.nbcd)=="mod.bias.sd")] <- "bias.sd"
-  names(biom.nbcd)[which(names(biom.nbcd)=="mod.bias.abs.sd")] <- "bias.abs.sd"
   names(biom.nbcd)[which(names(biom.nbcd)=="nbcd.mean")] <- "bench.mean"
   names(biom.nbcd)[which(names(biom.nbcd)=="nbcd.sd")]   <- "bench.sd"
-  biom.nbcd <- biom.nbcd[,c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.abs", "bias.sd", "bias.abs.sd")]
+  biom.nbcd <- biom.nbcd[,cols.keep]
   biom.nbcd
   
   # 2.05. Carbon Fluxes - Flux Towers (contributor/contact: Dave)
   flux.tower <- read.csv(file.path(bench.dir, "Fluxes_FluxTowers_ModelBenchmarks_Summary.csv"))
   flux.tower$Dataset <- as.factor("Ameriflux")
   names(flux.tower)[which(names(flux.tower)=="Flux")] <- "Var"
-  names(flux.tower)[which(names(flux.tower)=="mod.bias")] <- "bias"
-  names(flux.tower)[which(names(flux.tower)=="mod.bias.abs")] <- "bias.abs"
-  names(flux.tower)[which(names(flux.tower)=="mod.bias.sd")] <- "bias.sd"
-  names(flux.tower)[which(names(flux.tower)=="mod.bias.abs.sd")] <- "bias.abs.sd"
   names(flux.tower)[which(names(flux.tower)=="tower.mean")] <- "bench.mean"
   names(flux.tower)[which(names(flux.tower)=="tower.sd")]   <- "bench.sd"
-  flux.tower <- flux.tower[,c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.abs", "bias.sd", "bias.abs.sd")]
+  flux.tower <- flux.tower[,cols.keep]
   flux.tower
   
   # 2.06. MODIS - LAI, GPP (contributor/contact: Bethany)
   modis <- read.csv(file.path(bench.dir, "MODIS_ModelBenchmarks_Summary.csv"))
   modis$Dataset <- as.factor("MODIS")
   names(modis)[which(names(modis)=="Flux")] <- "Var"
-  names(modis)[which(names(modis)=="mod.bias")] <- "bias"
-  names(modis)[which(names(modis)=="mod.bias.abs")] <- "bias.abs"
-  names(modis)[which(names(modis)=="mod.bias.sd")] <- "bias.sd"
-  names(modis)[which(names(modis)=="mod.bias.abs.sd")] <- "bias.abs.sd"
   names(modis)[which(names(modis)=="modis.mean")] <- "bench.mean"
   names(modis)[which(names(modis)=="modis.sd")]   <- "bench.sd"
-  modis <- modis[,c("Dataset", "Var", "Model", "Model.Order", "bench.mean", "bench.sd", "model.mean", "model.sd", "bias", "bias.abs", "bias.sd", "bias.abs.sd")]
+  modis <- modis[,cols.keep]
   modis
   
   
@@ -175,10 +165,8 @@ rm(list=ls())
   models.bench <- rbind(comp.stepps, comp.setveg, biom.setveg, biom.nbcd, flux.tower, modis)
   models.bench$Benchmark <- as.factor(paste(models.bench$Dataset, models.bench$Var, sep="-"))
   summary(models.bench)
-  
-  # Relativizing Bias to the benchmark mean
-  models.bench[,c("bias.perc", "bias.abs.perc")] <- models.bench[,c("bias", "bias.abs")]/abs(models.bench$bench.mean)
-  summary(models.bench)
+ 
+  write.csv(models.bench, file.path(out.dir, "Benchmarks_Summary_All.png"), row.names=F) 
 }
 # -------------------------------------------
 
@@ -188,8 +176,29 @@ rm(list=ls())
 # 3. Summary by Benchmark (Table + Figure)
 # -------------------------------------------
 {
+  col.model <- model.colors[model.colors$Model.Order %in% unique(models.bench$Model.Order),"color"]
+  shape.model <- model.colors[model.colors$Model.Order %in% unique(models.bench$Model.Order),"shape"]
   
-}
+  models.bench$Var  <- factor(models.bench$Var , levels=c("GPP", "RE", "NEE", "LAI", "AGB", "Fcomp"))
+  summary(models.bench)
+
+  # Making a summary figure
+  png(file.path(fig.dir, "Benchmarks_Summary_All.png"), height=6, width=8, units="in", res=220)
+  print(
+  ggplot(data=models.bench) +
+    facet_grid(.~Var, scales="free_x") +
+    geom_hline(yintercept=0, linetype="dashed") +
+    # geom_hline(yintercept=-100, linetype="dashed", size=0.5, color="gray50") +
+    geom_pointrange(aes(x=Dataset,  y=bias.per*100, ymin=(bias.per-bias.per.sd)*100, ymax=(bias.per+bias.per.sd)*100, color=Model.Order, shape=Model.Order), position=position_jitter(0.75), size=0.8, alpha=0.8) +
+    scale_color_manual(values=paste(col.model)) +
+    scale_shape_manual(values=shape.model+14) +
+    scale_y_continuous(name="Percent Bias") +
+    theme_bw() +
+    theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    coord_cartesian(ylim=c(min(models.bench$bias.per-models.bench$bias.per.sd, na.rm=T)*100, quantile(models.bench$bias.per+models.bench$bias.per.sd, 0.95, na.rm=T)*100))
+  )
+  dev.off()
+  }
 # -------------------------------------------
 
 # -------------------------------------------
