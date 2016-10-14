@@ -34,8 +34,8 @@ rm(list=ls())
   library(car)
   library(ggplot2)
   # library(mgcv)
-  # setwd("~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
-  setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
+  setwd("~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
+  # setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
   # path.gamm.func <- "~/Desktop/R_Functions/"  # Path to github repository of my GAMM helper functions: https://github.com/crollinson/R_Functions.git
   inputs    <- "Data/" # Path to my cleaned model output
   
@@ -166,7 +166,7 @@ rm(list=ls())
   models.bench$Benchmark <- as.factor(paste(models.bench$Dataset, models.bench$Var, sep="-"))
   summary(models.bench)
  
-  write.csv(models.bench, file.path(out.dir, "Benchmarks_Summary_All.png"), row.names=F) 
+  write.csv(models.bench, file.path(out.dir, "Benchmarks_Summary_All.csv"), row.names=F) 
 }
 # -------------------------------------------
 

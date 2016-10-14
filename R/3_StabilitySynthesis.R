@@ -65,7 +65,8 @@ rm(list=ls())
 library(car)
 library(ggplot2); library(scales)
 library(mgcv)
-setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
+# setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
+setwd("~/Desktop/Research/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability") # Path to this project github repository: https://github.com/PalEON-Project/MIP-Change-and-Stability.git
 # path.gamm.func <- "~/Desktop/R_Functions/"  # Path to github repository of my GAMM helper functions: https://github.com/crollinson/R_Functions.git
 inputs    <- "Data/" # Path to my cleaned model output
 
@@ -76,6 +77,22 @@ fig.dir <- "Figures/StabilitySynthesis" # Path to where figures should go
 
 if(!dir.exists(out.dir)) dir.create(out.dir)
 if(!dir.exists(fig.dir)) dir.create(fig.dir)
+
+# Colors used for graphing
+model.colors <- read.csv("../../Model.Colors.csv")
+model.colors $Model.Order <- recode(model.colors$Model, "'CLM4.5-BGC'='01'; 'CLM4.5-CN'='02'; 'ED2'='03'; 'ED2-LU'='04';  'JULES-STATIC'='05'; 'JULES-TRIFFID'='06'; 'LINKAGES'='07'; 'LPJ-GUESS'='08'; 'LPJ-WSL'='09'; 'SiBCASA'='10'")
+levels(model.colors$Model.Order)[1:10] <- c("CLM-BGC", "CLM-CN", "ED2", "ED2-LU", "JULES-STATIC", "JULES-TRIFFID", "LINKAGES", "LPJ-GUESS", "LPJ-WSL", "SiBCASA")
+model.colors <- model.colors[order(model.colors$Model.Order),]
+
+model.colors$Model.Family <- ifelse(substr(model.colors$Model,1,3)=="CLM", "CLM", 
+                                    ifelse(substr(model.colors$Model, 1, 3)=="ED2", "ED2",
+                                           ifelse(substr(model.colors$Model, 1, 3)=="LPJ", "LPJ",
+                                                  ifelse(substr(model.colors$Model,1,5)=="JULES", "JULES",
+                                                         toupper(model.colors$Model)))))
+model.colors$Model.Family <- as.factor(model.colors$Model.Family)
+model.colors$shape <- as.numeric(model.colors$Model.Family)
+model.colors
+
 # -------------------------------------------
 
 
@@ -163,539 +180,7 @@ if(!dir.exists(fig.dir)) dir.create(fig.dir)
 # ------------------
 
 # ------------------
-# 3.0. Generate a synthesizing figure
-# ------------------
-#         -- compare models & variables; site probably not important
-{
-  # Averaging across models to be able to look at the ensemble variability of 
-  # Note: min/max weren't working, so we'll take the 0 and 100 percentiles
-  ecosys.change.region <- aggregate(ecosys.change.mod[,c("Y", "Y.anom", "mean.anom", "lwr.anom", "upr.anom", "deriv.mean", "n.sig")],
-                                    by=ecosys.change.mod[,c("Year", "var")],
-                                    FUN=mean, na.rm=T)
-  ecosys.change.region[,c("Y.anom.min", "n.min")] <- aggregate(ecosys.change.mod[,c("Y.anom", "n.sig")],
-                                                                          by=ecosys.change.mod[,c("Year", "var")],
-                                                                          FUN=quantile, 0, na.rm=T)[,c("Y.anom", "n.sig")]
-  ecosys.change.region[,c("Y.anom.max", "n.max")] <- aggregate(ecosys.change.mod[,c("Y.anom", "n.sig")],
-                                                                          by=ecosys.change.mod[,c("Year", "var")],
-                                                                          FUN=quantile, 1, na.rm=T)[,c("Y.anom", "n.sig")]
-  ecosys.change.region$mod.sig <- aggregate(ecosys.change.mod[,"mod.sig"],
-                                            by=ecosys.change.mod[,c("Year", "var")],
-                                            FUN=function(x){length(which(x == "*"))})[,"x"]
- 
-  # doing some smoothing to make cleaner graphs
-  library(zoo)
-  for(v in unique(ecosys.change.region$var)){
-      ecosys.change.region[ecosys.change.region$var==v, "Y.anom.10"] <- rollapply(ecosys.change.region[ecosys.change.region$var==v, "Y.anom"], width=10, FUN=mean, fill=NA)
-      ecosys.change.region[ecosys.change.region$var==v, "Y.anom.min.10"] <- rollapply(ecosys.change.region[ecosys.change.region$var==v, "Y.anom.min"], width=10, FUN=mean, fill=NA)
-      ecosys.change.region[ecosys.change.region$var==v, "Y.anom.max.10"] <- rollapply(ecosys.change.region[ecosys.change.region$var==v, "Y.anom.max"], width=10, FUN=mean, fill=NA)
-  }
-  summary(ecosys.change.region)
-  
-  # Showing Model consensus by site rather than model -- might give better indication of where/when models do/do not agree
-  ecosys.change.site <- aggregate(ecosys.change[,c("Y", "Y.anom", "mean.anom", "lwr.anom", "upr.anom", "deriv.mean", "deriv.lwr", "deriv.upr")],
-                                  by=ecosys.change[,c("Year", "var", "Site")],
-                                  FUN=mean, na.rm=T)
-  ecosys.change.site$Y.anom.min <- aggregate(ecosys.change[,c("Y.anom")],
-                                             by=ecosys.change[,c("Year", "var", "Site")],
-                                             FUN=min, na.rm=T)[,"x"]
-  ecosys.change.site$Y.anom.max <- aggregate(ecosys.change[,c("Y.anom")],
-                                             by=ecosys.change[,c("Year", "var", "Site")],
-                                             FUN=max, na.rm=T)[,"x"]
-  ecosys.change.site$n.sig <- aggregate(ecosys.change[,"sig"],
-                                        by=ecosys.change[,c("Year", "var", "Site")],
-                                        FUN=function(x){length(which(x == "*"))})[,"x"]
-  
-  # Doing some temporal smoothing on ecosys.change.site for better graphs
-  library(zoo)
-  for(v in unique(ecosys.change.site$var)){
-    for(s in unique(ecosys.change.site$Site)){
-      ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Site==s, "Y.anom.10"] <- rollapply(ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Site==s, "Y.anom"], width=10, FUN=mean, fill=NA)
-      ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Site==s, "Y.anom.min.10"] <- rollapply(ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Site==s, "Y.anom.min"], width=10, FUN=mean, fill=NA)
-      ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Site==s, "Y.anom.max.10"] <- rollapply(ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Site==s, "Y.anom.max"], width=10, FUN=mean, fill=NA)
-    }
-  }
-
-  
-  head(ecosys.change.site)
-  summary(ecosys.change.site)
-  # ------------------
-  
-  # ------------------
-  # Figuring out the most useful way to graph thigns
-  # ------------------
-{  # Setting up the panels we'll need to go by variable and allow variable scaling
-  # Order: (may need to swithc AGB & Fcomp, but that shouldn't matter)
-  # 1. GPP
-  # 2. NEE
-  # 3. LAI
-  # 4. AGB
-  # 5. Fcomp
-  # 6. Soil Carb
-  
-  # Graphing 
-  ggplot(data=ecosys.change.region[,]) +
-    facet_grid(var~., scales="free_y") +
-    scale_x_continuous(expand=c(0,0), name="Year") +
-    scale_y_continuous(expand=c(0,0), name=paste0("Deviation from Spinup")) +
-    # geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-    geom_ribbon(aes(x=Year, ymin=Y.anom.min.10, ymax=Y.anom.max.10), alpha=0.25) +
-    geom_hline(yintercept=0, linetype="dashed") +
-    geom_ribbon(data=ecosys.change.region[ ecosys.change.region$Year<1850,], 
-                aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-    geom_ribbon(data=ecosys.change.region[ecosys.change.region$Year>1900,], 
-                aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-    geom_line(data=ecosys.change.region[ecosys.change.region$Year<1850,], 
-              aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-    geom_line(data=ecosys.change.region[ecosys.change.region$Year>1900,], 
-              aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-    geom_point(aes(x=Year, y=mean.anom, size=as.factor(mod.sig), color=abs(deriv.mean)), alpha=1) +
-    geom_vline(xintercept=1850, linetype="dashed") +
-    geom_vline(xintercept=1900, linetype="dashed") +
-    scale_size_manual(name="# Models Showing Change", values=seq(0, 4, length.out=11), breaks=seq(0,10, by=1)) +
-    scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange")) +
-    theme_bw() +
-    theme(legend.position="top")
-  
-  
-  
-  library(gridExtra); library(gtable)
-  library(cowplot)
-  
-  extract.legend.size <- function(dat.plot){
-    # Function from: http://stackoverflow.com/questions/16501999/positioning-two-legends-independently-in-a-faceted-ggplot2-plot/17470321#17470321
-    g_legend<-function(a.gplot){
-      tmp <- ggplot_gtable(ggplot_build(a.gplot))
-      leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-      legend <- tmp$grobs[[leg]]
-      return(legend)
-    }
-    
-    # Trying to put the size legend above and the color scale on the right:
-    # http://stackoverflow.com/questions/13143894/how-do-i-position-two-legends-independently-in-ggplot
-    plot.size <- ggplot(data=dat.plot[dat.plot$var=="LAI",]) + # LAI is the only variable to have all 10 models show instability
-      facet_grid(var~Site, scales="fixed") +
-      geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig)), alpha=1) +
-      theme_bw() +
-      scale_size_manual(values=seq(0, 5, length.out=11), breaks=seq(0,10, by=1)) +
-      guides(size=guide_legend(title="# Models Showing Change", nrow=1)) +
-      theme(legend.position="top",
-            legend.key=element_blank(),
-            legend.key.height=unit(2, "lines")
-      ) +
-      theme(plot.margin=unit(c(1,1,0,1), "lines"))
-    
-    # extract size legend
-    legend.size <- g_legend(plot.size)
-    
-    return(legend.size)
-  }
-  extract.legend.color <- function(dat.plot, var.plot, sites){
-    # Function from: http://stackoverflow.com/questions/16501999/positioning-two-legends-independently-in-a-faceted-ggplot2-plot/17470321#17470321
-    g_legend<-function(a.gplot){
-      tmp <- ggplot_gtable(ggplot_build(a.gplot))
-      leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-      legend <- tmp$grobs[[leg]]
-      return(legend)
-    }
-    # 
-    # Trying to put the size legend above and the color scale on the right:
-    # http://stackoverflow.com/questions/13143894/how-do-i-position-two-legends-independently-in-ggplot
-    plot.color <- ggplot(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites,]) +
-      facet_grid(var~Site, scales="fixed") +
-      geom_point(aes(x=Year, y=mean.anom, color=abs(deriv.mean)), alpha=1) +
-      scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange")) +
-      guides(colorbar=guide_legend(title.theme=element_text(margin=c(0,5,0,0))))  +
-      theme_bw() +
-      theme(legend.key.height=unit(0.8, "lines")) +
-      theme(axis.text.x=element_blank(),
-            axis.title.x=element_blank(),
-            axis.text.y=element_text(margin=margin(0,10,0,0)),
-            axis.title.y=element_text(margin=margin(0,10,0,0)),
-            axis.ticks.length=unit(-0.5, unit="lines")) +
-      theme(strip.text.x=element_blank()) +
-      theme(plot.margin=unit(c(0,1,0.5,1), "lines"))
-    
-    # extract size legend
-    legend.color <- g_legend(plot.color)
-    # legend.color <- heights=
-    # Take the legend from p1
-    # legend.color <- gtable_filter(ggplot_gtable(ggplot_build(plot.color)), "guide-box") 
-    # legGrob <- grobTree(legend.color)
-    
-    return(legend.color)
-  }
-  plot.blank <- function(dat.plot){
-    plot.blank <- ggplot(data=dat.plot) +
-      geom_blank()
-    
-    return(plot.blank)
-  }
-  plot.top.site <- function(dat.plot, var.plot, sites){
-    plot.top <- ggplot(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites,]) +
-      theme_bw() +
-      facet_grid(var~Site, scales="fixed") +
-      # geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-      geom_ribbon(aes(x=Year, ymin=Y.anom.min.10, ymax=Y.anom.max.10), alpha=0.25) +
-      geom_ribbon(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year<1850,], 
-                  aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_ribbon(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year>1900,], 
-                  aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_line(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year<1850,], 
-                aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_line(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year>1900,], 
-                aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-      geom_vline(xintercept=1850, linetype="dashed") +
-      geom_vline(xintercept=1900, linetype="dashed") +
-      scale_x_continuous(expand=c(0,0), name="Year") +
-      scale_y_continuous(expand=c(0,0), name=paste0("Deviation from Spinup")) +
-      scale_size_manual(values=seq(0, 5, length.out=11), breaks=seq(0,10, by=1)) +
-      scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange")) +
-      guides(size=F) +
-      theme(legend.key.height=unit(0.8, "lines")) +
-      theme(axis.text.x=element_blank(),
-            axis.title.x=element_blank(),
-            axis.text.y=element_text(margin=margin(0,10,0,0)),
-            axis.title.y=element_text(margin=margin(0,10,0,0), size=rel(0.8)),
-            axis.ticks.length=unit(-0.5, unit="lines")) +
-      theme(plot.margin=unit(c(0.1,1,0.5,1), "lines"))
-    
-    return(plot.top)
-  }
-  plot.middle.site <- function(dat.plot, var.plot, sites){
-    
-    plot.mid <- ggplot(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites,]) +
-      facet_grid(var~Site, scales="fixed") +
-      # geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-      geom_ribbon(aes(x=Year, ymin=Y.anom.min.10, ymax=Y.anom.max.10), alpha=0.25) +
-      geom_ribbon(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year<1850,], 
-                  aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_ribbon(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year>1900,], 
-                  aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_line(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year<1850,], 
-                aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_line(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year>1900,], 
-                aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-      geom_vline(xintercept=1850, linetype="dashed") +
-      geom_vline(xintercept=1900, linetype="dashed") +
-      scale_x_continuous(expand=c(0,0), name="Year") +
-      scale_y_continuous(expand=c(0,0), name=paste0("Deviation from Spinup")) +
-      scale_size_manual(values=seq(0, 5, length.out=11), breaks=seq(0,10, by=1)) +
-      scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange")) +
-      guides(size=F) +
-      theme_bw() +
-      theme(legend.key.height=unit(0.8, "lines")) +
-      theme(axis.text.x=element_blank(),
-            axis.title.x=element_blank(),
-            axis.text.y=element_text(margin=margin(0,10,0,0)),
-            axis.title.y=element_text(margin=margin(0,10,0,0), size=rel(0.8)),
-            axis.ticks.length=unit(-0.5, unit="lines")) +
-      theme(strip.text.x=element_blank()) +
-      theme(plot.margin=unit(c(0,1,0.5,1), "lines"))
-    
-    return(plot.mid)
-  }
-  plot.bottom.site <- function(dat.plot, var.plot, sites){
-    
-    plot.mid <- ggplot(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites,]) +
-      facet_grid(var~Site, scales="fixed") +
-      # geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-      geom_ribbon(aes(x=Year, ymin=Y.anom.min.10, ymax=Y.anom.max.10), alpha=0.25) +
-      geom_ribbon(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year<1850,], 
-                  aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_ribbon(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year>1900,], 
-                  aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_line(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year<1850,], 
-                aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_line(data=dat.plot[dat.plot$var==var.plot & dat.plot$Site %in% sites & dat.plot$Year>1900,], 
-                aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-      geom_vline(xintercept=1850, linetype="dashed") +
-      geom_vline(xintercept=1900, linetype="dashed") +
-      scale_x_continuous(expand=c(0,0), name="Year") +
-      scale_y_continuous(expand=c(0,0), name=paste0("Deviation from Spinup")) +
-      scale_size_manual(values=seq(0, 5, length.out=11), breaks=seq(0,10, by=1)) +
-      scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange")) +
-      guides(size=F) +
-      theme_bw() +
-      theme(legend.key.height=unit(0.8, "lines")) +
-      theme(axis.text.x=element_text(margin=margin(10,0,0,0)),
-            axis.title.x=element_text(margin=margin(10,0,0,0)),
-            axis.text.y=element_text(margin=margin(0,10,0,0)),
-            axis.title.y=element_text(margin=margin(0,10,0,0), size=rel(0.8)),
-            axis.ticks.length=unit(-0.5, unit="lines")) +
-      theme(strip.text.x=element_blank()) +
-      theme(plot.margin=unit(c(0,1,1,1), "lines"))
-    
-    return(plot.mid)
-  }
-  
-  legend.size <- extract.legend.size(dat.plot=ecosys.change.site)
-  # plot.blank1 <- plot.blank(dat.plot=ecosys.change.site)
-  
-  for(s in unique(ecosys.change.site$Site)){
-    print(paste0(" ** ", s))
-    
-    plot.gpp <- plot.top.site(dat.plot=ecosys.change.site, var="GPP", sites=s)
-    lgnd.gpp <- extract.legend.color(dat.plot=ecosys.change.site, var="GPP", sites=s)
-    plot.nee <- plot.middle.site(dat.plot=ecosys.change.site, var="NEE", sites=s)
-    lgnd.nee <- extract.legend.color(dat.plot=ecosys.change.site, var="NEE", sites=s)
-    plot.lai <- plot.middle.site(dat.plot=ecosys.change.site, var="LAI", sites=s)
-    lgnd.lai <- extract.legend.color(dat.plot=ecosys.change.site, var="LAI", sites=s)
-    plot.agb <- plot.middle.site(dat.plot=ecosys.change.site, var="AGB", sites=s)
-    lgnd.agb <- extract.legend.color(dat.plot=ecosys.change.site, var="AGB", sites=s)
-    plot.fcomp <- plot.middle.site(dat.plot=ecosys.change.site, var="Fcomp", sites=s)
-    lgnd.fcomp <- extract.legend.color(dat.plot=ecosys.change.site, var="Fcomp", sites=s)
-    plot.soilc <- plot.bottom.site(dat.plot=ecosys.change.site, var="SoilCarb", sites=s)
-    lgnd.soilc <- extract.legend.color(dat.plot=ecosys.change.site, var="SoilCarb", sites=s)
-    
-    # 
-    # plot.soilc2 <- ggplotGrob(plot.soilc )
-    # plot.soilc2$grobs
-    # # plot.soilc2$grobs[[9]]$heights = unit.c(unit(0.1, "null"), unit(20, "npc"), unit(0.1, "null"))
-    # # plot.soilc2$heights[[6]] <- unit(0.3, "null")
-    # # plot.soilc2$widths[[6]] <- unit(10, "null")
-    # plot(plot.soilc2)
-    if(s == "PHA"){
-      mar.plot <- list(gpp=theme(plot.margin=unit(c(0.1,1,0.4,1), "lines")),
-                       nee=theme(plot.margin=unit(c(0.1,1.3,0.4,0.75), "lines")),
-                       lai=theme(plot.margin=unit(c(0.1,0.95,0.4,0.75), "lines")),
-                       agb=theme(plot.margin=unit(c(0.1,1.5,0.4,0.9), "lines")),
-                       fcomp=theme(plot.margin=unit(c(0.1,1.2,0.4,0.7), "lines")),
-                       soilc=theme(plot.margin=unit(c(0.1,1.5,0.5,0.85), "lines")))
-    } else if(s=="PHO"){
-      mar.plot <- list(gpp=theme(plot.margin=unit(c(0.1,1.3,0.4,1), "lines")),
-                       nee=theme(plot.margin=unit(c(0.1,0.9,0.4,0.75), "lines")),
-                       lai=theme(plot.margin=unit(c(0.1,0.9,0.4,1.3), "lines")),
-                       agb=theme(plot.margin=unit(c(0.1,1.5,0.4,0.9), "lines")),
-                       fcomp=theme(plot.margin=unit(c(0.1,1.2,0.4,0.7), "lines")),
-                       soilc=theme(plot.margin=unit(c(0.1,1.5,0.5,0.85), "lines")))
-    } else if(s=="PUN"){
-      mar.plot <- list(gpp=theme(plot.margin=unit(c(0.1,1,0.4,1), "lines")),
-                       nee=theme(plot.margin=unit(c(0.1,0.65,0.4,0.75), "lines")),
-                       lai=theme(plot.margin=unit(c(0.1,1.4,0.4,1.3), "lines")),
-                       agb=theme(plot.margin=unit(c(0.1,1.65,0.4,0.9), "lines")),
-                       fcomp=theme(plot.margin=unit(c(0.1,1.05,0.4,0.7), "lines")),
-                       soilc=theme(plot.margin=unit(c(0.1,1.70,0.5,0.85), "lines")))
-    } else if(s=="PMB"){
-      mar.plot <- list(gpp=theme(plot.margin=unit(c(0.1,0.95,0.4,1), "lines")),
-                       nee=theme(plot.margin=unit(c(0.1,0.9,0.4,0.8), "lines")),
-                       lai=theme(plot.margin=unit(c(0.1,1,0.4,1.35), "lines")),
-                       agb=theme(plot.margin=unit(c(0.1,1.25,0.4,0.9), "lines")),
-                       fcomp=theme(plot.margin=unit(c(0.1,1.0,0.4,0.7), "lines")),
-                       soilc=theme(plot.margin=unit(c(0.1,1.25,0.5,0.85), "lines")))
-    } else if(s=="PBL"){
-      mar.plot <- list(gpp=theme(plot.margin=unit(c(0.1,0.9,0.4,1.05), "lines")),
-                       nee=theme(plot.margin=unit(c(0.1,0.9,0.4,0.8), "lines")),
-                       lai=theme(plot.margin=unit(c(0.1,0.95,0.4,1.3), "lines")),
-                       agb=theme(plot.margin=unit(c(0.1,1.2,0.4,1.25), "lines")),
-                       fcomp=theme(plot.margin=unit(c(0.1,0.6,0.4,0.9), "lines")),
-                       soilc=theme(plot.margin=unit(c(0.1,1.2,0.5,0.8), "lines")))
-    } else if(s=="PDL"){
-      mar.plot <- list(gpp=theme(plot.margin=unit(c(0.1,0.7,0.4,0.8), "lines")),
-                       nee=theme(plot.margin=unit(c(0.1,0.7,0.4,0.6), "lines")),
-                       lai=theme(plot.margin=unit(c(0.1,0.7,0.4,1.3), "lines")),
-                       agb=theme(plot.margin=unit(c(0.1,0.95,0.4,0.9), "lines")),
-                       fcomp=theme(plot.margin=unit(c(0.1,0.3,0.4,0.7), "lines")),
-                       soilc=theme(plot.margin=unit(c(0.1,0.9,0.5,0.85), "lines")))
-    }
-    
-    
-    png(file.path(fig.dir, paste0("Stability_Site_",s,".png")), height=11.5, width=8.5, units="in", res=180)
-    print(
-      plot_grid(legend.size, 
-                plot.gpp + mar.plot$gpp, 
-                plot.nee + mar.plot$nee, 
-                plot.lai + mar.plot$lai, 
-                plot.agb + mar.plot$agb, 
-                plot.fcomp + mar.plot$fcomp, 
-                plot.soilc + mar.plot$soilc, 
-                ncol=1, nrow=7, rel_heights = c(0.05, rep(0.9/5, 5), 0.9/5+0.05))
-    )
-    dev.off()
-  }
-  
-  
-  # set up plots grid
-  plot.gpp2 <- plot.top.site(dat.plot=ecosys.change.site, var="GPP", sites=unique(ecosys.change.site$Site))
-  # lgnd.gpp <- extract.legend.color(dat.plot=ecosys.change.site, var="GPP", sites="PHA")
-  plot.nee2 <- plot.middle.site(dat.plot=ecosys.change.site, var="NEE", sites=unique(ecosys.change.site$Site))
-  # lgnd.nee <- extract.legend.color(dat.plot=ecosys.change.site, var="NEE", sites="PHA")
-  plot.lai2 <- plot.middle.site(dat.plot=ecosys.change.site, var="LAI", sites=unique(ecosys.change.site$Site))
-  # lgnd.lai <- extract.legend.color(dat.plot=ecosys.change.site, var="LAI", sites="PHA")
-  plot.agb2 <- plot.middle.site(dat.plot=ecosys.change.site, var="AGB", sites=unique(ecosys.change.site$Site))
-  # lgnd.agb <- extract.legend.color(dat.plot=ecosys.change.site, var="AGB", sites="PHA")
-  plot.fcomp2 <- plot.middle.site(dat.plot=ecosys.change.site, var="Fcomp", sites=unique(ecosys.change.site$Site))
-  # lgnd.fcomp <- extract.legend.color(dat.plot=ecosys.change.site, var="Fcomp", sites="PHA")
-  plot.soilc2 <- plot.bottom.site(dat.plot=ecosys.change.site, var="SoilCarb", sites=unique(ecosys.change.site$Site))
-  # lgnd.soilc <- extract.legend.color(dat.plot=ecosys.change.site, var="SoilCarb", sites="PHA")
-  png(file.path(fig.dir, paste0("Stability_Site_All.png")), height=11.5, width=15.5, units="in", res=220)
-  plot_grid(legend.size, plot.gpp2, plot.nee2, plot.lai2, plot.agb2, plot.fcomp2, plot.soilc2, ncol=1, nrow=7, rel_heights = c(0.03, rep(0.9/5, 5), 0.9/5+0.07))
-  dev.off()
-  
-  # Graphing by variable  
-  for(v in unique(ecosys.change.mod$var)){
-    paste0("** ",v)
-    png(file.path(fig.dir, paste0("Stability_Var_",v,".png")), height=8.5, width=8.5, units="in", res=180)
-    print(
-      ggplot(data=ecosys.change.mod[ecosys.change.mod$var==v,]) +
-        facet_wrap(~Model.Order, scales="fixed") +
-        geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-        geom_ribbon(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year<1850,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_ribbon(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year>1900,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_line(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year<1850,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_line(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year>1900,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-        geom_vline(xintercept=1850, linetype="dashed") +
-        geom_vline(xintercept=1900, linetype="dashed") +
-        scale_x_continuous(expand=c(0,0), name="Year") +
-        scale_y_continuous(expand=c(0,0), name=paste0(v, " Deviation from Spinup")) +
-        scale_size_manual(values=seq(0, 3, length.out=length(unique(ecosys.change.mod$n.sig)))) +
-        scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange\n(", v,"/yr)")) +
-        guides(size=guide_legend(title="# Sites \nShowing \nChange")) +
-        ggtitle(v) +
-        theme_bw() +
-        theme(plot.title=element_text(face="bold", size=rel(2)))
-    )
-    dev.off()
-    
-    png(file.path(fig.dir, paste0("Stability_Var_",v,"_FreeY.png")), height=8.5, width=8.5, units="in", res=180)
-    print(
-      ggplot(data=ecosys.change.mod[ecosys.change.mod$var==v,]) +
-        facet_wrap(~Model.Order, scales="free_y") +
-        geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-        geom_ribbon(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year<1850,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_ribbon(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year>1900,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_line(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year<1850,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_line(data=ecosys.change.mod[ecosys.change.mod$var==v & ecosys.change.mod$Year>1900,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-        geom_vline(xintercept=1850, linetype="dashed") +
-        geom_vline(xintercept=1900, linetype="dashed") +
-        scale_x_continuous(expand=c(0,0), name="Year") +
-        scale_y_continuous(expand=c(0,0), name=paste0(v, " Deviation from Spinup")) +
-        scale_size_manual(values=seq(0, 3, length.out=length(unique(ecosys.change.mod$n.sig)))) +
-        scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange\n(", v,"/yr)")) +
-        guides(size=guide_legend(title="# Sites \nShowing \nChange")) +
-        ggtitle(v) +
-        theme_bw() +
-        theme(plot.title=element_text(face="bold", size=rel(2)))  
-    )
-    dev.off()
-  }
-  
-  # Graphing by Model
-  for(m in unique(ecosys.change.mod$Model.Order)){
-    paste0("** ",m)
-    png(file.path(fig.dir, paste0("Stability_Model_",m,".png")), height=8.5, width=8.5, units="in", res=220)
-    print(
-      ggplot(data=ecosys.change.mod[ecosys.change.mod$Model.Order==m,]) +
-        # facet_wrap(~var, scales="free_y") +
-        facet_grid(var~., scales="free_y") +
-        geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-        geom_ribbon(data=ecosys.change.mod[ecosys.change.mod$Model.Order==m & ecosys.change.mod$Year<1850,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_ribbon(data=ecosys.change.mod[ecosys.change.mod$Model.Order==m & ecosys.change.mod$Year>1900,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_line(data=ecosys.change.mod[ecosys.change.mod$Model.Order==m & ecosys.change.mod$Year<1850,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_line(data=ecosys.change.mod[ecosys.change.mod$Model.Order==m & ecosys.change.mod$Year>1900,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-        geom_vline(xintercept=1850, linetype="dashed") +
-        geom_vline(xintercept=1900, linetype="dashed") +
-        scale_x_continuous(expand=c(0,0), name="Year") +
-        scale_y_continuous(expand=c(0,0), name=paste0(m, " Deviation from Spinup")) +
-        scale_size_manual(values=seq(0, 3, length.out=length(unique(ecosys.change.mod$n.sig)))) +
-        scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Rate of \nChange\n(", m,"/yr)")) +
-        guides(size=guide_legend(title="# Sites \nShowing \nChange")) +
-        ggtitle(m) +
-        theme_bw() +
-        theme(plot.title=element_text(face="bold", size=rel(2)))
-    )
-    dev.off()
-  }
-  
-  for(v in unique(ecosys.change.site$var)){
-    paste0("** ",v)
-    png(file.path(fig.dir, paste0("Stability_Var_",v,"_Sites.png")), height=8.5, width=8.5, units="in", res=180)
-    print(
-      ggplot(data=ecosys.change.site[ecosys.change.site$var==v,]) +
-        facet_wrap(~Site, scales="fixed") +
-        geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-        geom_ribbon(data=ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Year<1850,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_ribbon(data=ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Year>1900,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_line(data=ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Year<1850,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_line(data=ecosys.change.site[ecosys.change.site$var==v & ecosys.change.site$Year>1900,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-        geom_vline(xintercept=1850, linetype="dashed") +
-        geom_vline(xintercept=1900, linetype="dashed") +
-        scale_x_continuous(expand=c(0,0), name="Year") +
-        scale_y_continuous(expand=c(0,0), name=paste0(v, " Deviation from Spinup")) +
-        scale_size_manual(values=seq(0, 3, length.out=length(unique(ecosys.change.site$n.sig)))) +
-        scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Mean \nRate of \nChange")) +
-        guides(size=guide_legend(title="# Models \nShowing \nChange")) +
-        ggtitle(v) +
-        theme_bw() +
-        theme(plot.title=element_text(face="bold", size=rel(2)))
-    )
-    dev.off()
-  }
-  
-  # Showing all variables by site
-  png(file.path(fig.dir, paste0("Stability_Site_AllSites.png")), height=8.5, width=11.5, units="in", res=220)
-  print(
-    ggplot(data=ecosys.change.site[,]) +
-      facet_grid(var~Site, scales="free_y") +
-      geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-      geom_ribbon(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year<1850,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_ribbon(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year>1900,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-      geom_line(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year<1850,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_line(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year>1900,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-      geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-      geom_vline(xintercept=1850, linetype="dashed") +
-      geom_vline(xintercept=1900, linetype="dashed") +
-      scale_x_continuous(expand=c(0,0), name="Year") +
-      scale_y_continuous(expand=c(0,0), name=paste0(" Deviation from Spinup")) +
-      scale_size_manual(values=seq(0, 3, length.out=length(unique(ecosys.change.site$n.sig)))) +
-      scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Mean \nRate of \nChange")) +
-      guides(size=guide_legend(title="# Models \nShowing \nChange")) +
-      # ggtitle(i) +
-      theme_bw() +
-      theme(plot.title=element_text(face="bold", size=rel(2)))
-  )
-  dev.off()
-  
-  
-  for(i in unique(ecosys.change.site$Site)){
-    paste0("** ",i)
-    png(file.path(fig.dir, paste0("Stability_Site_",i,".png")), height=8.5, width=8.5, units="in", res=180)
-    print(
-      ggplot(data=ecosys.change.site[ecosys.change.site$Site==i,]) +
-        facet_grid(var~Site, scales="free_y") +
-        geom_line(aes(x=Year, y=Y.anom), size=0.5, alpha=0.3) +
-        geom_ribbon(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year<1850,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_ribbon(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year>1900,], aes(x=Year, ymin=lwr.anom, ymax=upr.anom), alpha=0.3) +
-        geom_line(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year<1850,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_line(data=ecosys.change.site[ecosys.change.site$Site==i & ecosys.change.site$Year>1900,], aes(x=Year, y=mean.anom), size=1, alpha=0.2) +
-        geom_point(aes(x=Year, y=mean.anom, size=as.factor(n.sig), color=abs(deriv.mean)), alpha=1) +
-        geom_vline(xintercept=1850, linetype="dashed") +
-        geom_vline(xintercept=1900, linetype="dashed") +
-        scale_x_continuous(expand=c(0,0), name="Year") +
-        scale_y_continuous(expand=c(0,0), name=paste0(" Deviation from Spinup")) +
-        scale_size_manual(values=seq(0, 3, length.out=length(unique(ecosys.change.site$n.sig)))) +
-        scale_color_gradient(low="gray25", high="red", guide="colorbar", name=paste0("Mean \nRate of \nChange")) +
-        guides(size=guide_legend(title="# Models \nShowing \nChange")) +
-        ggtitle(i) +
-        theme_bw() +
-        theme(plot.title=element_text(face="bold", size=rel(2)))
-    )
-    dev.off()
-  }
-  }
-  # ------------------
-  
-}
-# ------------------
-
-# ------------------
-# 4. Analyzing sensitivity 
+# 3. Analyzing sensitivity 
 #    4.1 average years per site per model of instability (pre/post); percentage?
 #    4.2 max rate of change pre/post
 #    4.3 model traits as predictors of pre-settlement stability
@@ -711,43 +196,94 @@ if(!dir.exists(fig.dir)) dir.create(fig.dir)
     ecosys.stats.site <- merge(ecosys.stats.site, data.frame(Model=levels(ecosys.change$Model), Model.Order=levels(ecosys.change$Model.Order)))
     summary(ecosys.stats.site)
     
+    # Set up a list to paralellize the calculations
+    stats.list <- list()
+    
+    pb <- txtProgressBar(min = 0, max = nrow(ecosys.stats.site), style = 3)
+    i=1
+    
     # Figuring out site-level stability stats
     for(v in unique(ecosys.stats.site$var)){
-      print(paste0(" **** ", v, " **** "))
       for(s in unique(ecosys.stats.site$Site)){
-        print(paste0(" ---- ", s, " ---- "))
+        # print(paste0(" ---- ", s, " ---- "))
         
         for(m in unique(ecosys.stats.site$Model)){
-          # Set up vectors for each site/var
-          ins1 <- vector() # Vector for pre-1850 instability
-          ins2 <- vector() # vector for post-1900 instability
-          dur=0 # Start duration count at 0
+          setTxtProgressBar(pb, i)
           
-          # ---------------
-          # Go through each year to find duration of instability periods because I don't know how else to do it
-          # ---------------
-          for(y in min(ecosys.change$Year):max(ecosys.change$Year)){ 
-            if(!is.na(ecosys.change[ecosys.change$var==v & ecosys.change$Site==s  & ecosys.change$Model==m & ecosys.change$Year==y,"sig"])){
-              dur=dur+1 # If this is a period of significant change add it to the year count
-              if(y==max(ecosys.change$Year)){ # If this is our last year and it's instable, record the duration
-                ins2 <- c(ins2, dur)
-              }
-            } else { # this year is instable 
-              # If we have a logged duration of instability, record it
-              if(dur > 0 & y<=1850){
-                ins1 <- c(ins1, dur)
-              } else if(dur > 0 & y>=1900) {
-                ins2 <- c(ins2, dur)
-              }
-              dur=0 # Set duration back to 0
-            }
-          } # End  year loop
-          # ---------------
+          if(is.na(mean(ecosys.change[ecosys.change$var==v & ecosys.change$Site==s  & ecosys.change$Model==m ,"deriv.mean"], na.rm=T))){
+            i=i+1
+            next
+          }
+          stats.list[[paste(v, s, m, sep="_")]] <- ecosys.change[ecosys.change$var==v & ecosys.change$Site==s  & ecosys.change$Model==m,]
+          i=i+1
+         }  # End Model loop
+      } # End site loop
+      # print(ecosys.stats.site[ecosys.stats.site$var==v,])
+    } # End var loop
+    
+    # Function to find periods of instabilty (this is the long step)
+    instability.duration <- function(change.data){
+      # Set up vectors for each site/var
+      ins1 <- vector() # Vector for pre-1850 instability
+      ins2 <- vector() # vector for post-1900 instability
+      dur=0 # Start duration count at 0
+      
+      # ---------------
+      # Go through each year to find duration of instability periods because I don't know how else to do it
+      # ---------------
+      for(y in min(change.data$Year):max(ecosys.change$Year)){ 
+        if(!is.na(change.data[change.data$Year==y,"sig"])){
+          dur=dur+1 # If this is a period of significant change add it to the year count
+          if(y==max(change.data$Year)){ # If this is our last year and it's instable, record the duration
+            ins2 <- c(ins2, dur)
+          }
+        } else { # this year is instable 
+          # If we have a logged duration of instability, record it
+          if(dur > 0 & y<=1850){
+            ins1 <- c(ins1, dur)
+          } else if(dur > 0 & y>=1900) {
+            ins2 <- c(ins2, dur)
+          }
+          dur=0 # Set duration back to 0
+        }
+      } # End  year loop
+      # ---------------
+      inst.dur <- list(pre.set=ins1, modern=ins2)
+      return(inst.dur)
+    }
+
+    # Run the caclulation in parallel
+    # test <- list()
+    # test[["GPP_PDL_clm.bgc"]] <- stats.list[["GPP_PDL_clm.bgc"]]
+    # test[["NEE_PDL_clm.bgc"]] <- stats.list[["NEE_PDL_clm.bgc"]]
+    # test[["AGB_PDL_clm.bgc"]] <- stats.list[["AGB_PDL_clm.bgc"]]
+    # test[["LAI_PDL_clm.bgc"]] <- stats.list[["LAI_PDL_clm.bgc"]]
+    # test.out <- instability.duration(test)
+    
+    library(parallel)
+    cores.use <- min(8, length(stats.list))
+    dat.out <- mclapply(stats.list, instability.duration, mc.cores=cores.use)
+    
+    
+    # Figuring out site-level stability stats
+    i=1
+    for(v in unique(ecosys.stats.site$var)){
+      for(s in unique(ecosys.stats.site$Site)){
+        # print(paste0(" ---- ", s, " ---- "))
+        
+        for(m in unique(ecosys.stats.site$Model)){
+          name.ind <- paste(v, s, m, sep="_")
+          setTxtProgressBar(pb, i)
+          
+          if(is.na(mean(ecosys.change[ecosys.change$var==v & ecosys.change$Site==s  & ecosys.change$Model==m ,"deriv.mean"], na.rm=T))){
+            i=i+1
+            next
+          }
           
           # ---------------
           # Insert data for paleo period
           # ---------------
-          if(length(ins1)==0) {
+          if(length(dat.out[[name.ind]]$pre.set)==0) {
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "n.inst.paleo"] <- length(ecosys.change[ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year<1850 & !is.na(ecosys.change$sig), "deriv.mean"])
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.mean.paleo"] <- 0
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.sd.paleo"] <- NA
@@ -768,8 +304,8 @@ if(!dir.exists(fig.dir)) dir.create(fig.dir)
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.sd.paleo"] <- sd(ecosys.change[ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year<1850 & !is.na(ecosys.change$sig), "deriv.mean"])
             
             # Saving the mean duration
-            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.mean.paleo"] <- mean(ins1, na.rm=T)
-            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.sd.paleo"] <- sd(ins1, na.rm=T)
+            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.mean.paleo"] <- mean(dat.out[[name.ind]]$pre.set, na.rm=T)
+            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.sd.paleo"] <- sd(dat.out[[name.ind]]$pre.set, na.rm=T)
             
             # Saving the max significant rate of change & time that occurs
             max.paleo <- which(ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year<1850 & !is.na(ecosys.change$sig) & abs(ecosys.change$deriv.mean)==abs(max(ecosys.change[ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year<1850 & !is.na(ecosys.change$sig), "deriv.mean"], na.rm=T)))
@@ -781,7 +317,7 @@ if(!dir.exists(fig.dir)) dir.create(fig.dir)
           # ---------------
           # Insert data for Modern period
           # ---------------
-          if(length(ins2)==0) {
+          if(length(dat.out[[name.ind]]$modern)==0) {
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "n.inst.modrn"] <- length(ecosys.change[ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year>1900 & !is.na(ecosys.change$sig), "deriv.mean"])
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.mean.modrn"] <- 0
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.sd.modrn"] <- NA
@@ -801,60 +337,172 @@ if(!dir.exists(fig.dir)) dir.create(fig.dir)
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.sd.modrn"] <- sd(ecosys.change[ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year>1900 & !is.na(ecosys.change$sig), "deriv.mean"])
             
             # Saving the mean duration
-            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.mean.modrn"] <- mean(ins2, na.rm=T)
-            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.sd.modrn"] <- sd(ins2, na.rm=T)
+            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.mean.modrn"] <- mean(dat.out[[name.ind]]$modern, na.rm=T)
+            ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "dur.sd.modrn"] <- sd(dat.out[[name.ind]]$modern, na.rm=T)
             
             # Saving the max significant rate of change & time that occurs
             max.modrn <- which(ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year>1900 & !is.na(ecosys.change$sig) & abs(ecosys.change$deriv.mean)==abs(max(ecosys.change[ecosys.change$Site==s & ecosys.change$var==v & ecosys.change$Model==m & ecosys.change$Year>1900 & !is.na(ecosys.change$sig), "deriv.mean"], na.rm=T)))
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.max.modrn"] <- ecosys.change[max.modrn, "deriv.mean"]
             ecosys.stats.site[ecosys.stats.site$Site==s & ecosys.stats.site$var==v & ecosys.stats.site$Model==m, "rate.max.modrn.yr"] <- ecosys.change[max.modrn, "Year"]
           }
-          # ---------------
+          
+          
+          i=i+1
         }  # End Model loop
       } # End site loop
-      print(ecosys.stats.site[ecosys.stats.site$var==v,])
+      # print(ecosys.stats.site[ecosys.stats.site$var==v,])
     } # End var loop
     
+    summary(ecosys.stats.site)
     
-    ecosys.stats.site[ecosys.stats.site$var=="tair",]
+    write.csv(ecosys.stats.site, file.path(out.dir, "Stability_Models_Stats_All.csv"), row.names=F)
+    
+    
     
     # Aggregating to the stats to variable level, leveraging the spatial sd
-    ecosys.stats.means <- aggregate(ecosys.stats.site[,3:ncol(ecosys.stats.site)], by=list(ecosys.stats.site$var), FUN=mean, na.rm=T)
-    names(ecosys.stats.means)[1] <- "var"
-    ecosys.stats.means
+    models.stats.means <- aggregate(ecosys.stats.site[,5:ncol(ecosys.stats.site)],
+                                    by=ecosys.stats.site[,c("Model", "Model.Order", "var")],
+                                    FUN=mean, na.rm=T)
+    summary(models.stats.means)
     
-    ecosys.stats.sd <- aggregate(ecosys.stats.site[,3:ncol(ecosys.stats.site)], by=list(ecosys.stats.site$var), FUN=sd, na.rm=T)
-    names(ecosys.stats.sd)[1] <- "var"
-    ecosys.stats.sd
+    models.stats.sd <- aggregate(ecosys.stats.site[,5:ncol(ecosys.stats.site)],
+                                 by=ecosys.stats.site[,c("Model", "Model.Order","var")],
+                                 FUN=sd, na.rm=T)
+    summary(models.stats.sd)
+ 
+    # Aggregating to the stats to variable level, leveraging the spatial sd
+    ensemble.stats.means <- aggregate(models.stats.means[,4:ncol(models.stats.means)],
+                                    by=list(models.stats.means[,c("var")]),
+                                    FUN=mean, na.rm=T)
+    names(ensemble.stats.means)[1] <- "var"
+    ensemble.stats.means
+    
+    ensemble.stats.sd <- aggregate(models.stats.means[,4:ncol(models.stats.means)],
+                                 by=list(models.stats.means[,c("var")]),
+                                 FUN=sd, na.rm=T)
+    names(ensemble.stats.sd)[1] <- "var"
+    ensemble.stats.sd
     
     # Making  a publication-style table summarizing periods of statisticlaly significant change in the ecosys drivers
     # NOTE: Standard Deviation based on spatial variability
-    ecosys.stab.summary <- data.frame(var=ecosys.stats.means$var, 
-                                      n.paleo=paste0(str_pad(round(ecosys.stats.means$n.inst.paleo,0), 3, pad=" "), " +/- ", str_pad(round(ecosys.stats.sd$n.inst.paleo, 0), 3, pad=" ")),
-                                      rate.paleo.mean = paste0(format(ecosys.stats.means$rate.mean.paleo,digits=3,scientific=T), " +/- ", format(ecosys.stats.sd$rate.mean.paleo, digits=3, scientific=T)),
-                                      rate.paleo.max = paste0(format(ecosys.stats.means$rate.max.paleo,digits=3, scientific=T), " +/- ", format(ecosys.stats.sd$rate.max.paleo, digits=3, scientific=T)),
+    library(stringr)
+    ensemble.summary <- data.frame(var=ensemble.stats.means$var, 
+                                      n.paleo=paste0(str_pad(round(ensemble.stats.means$n.inst.paleo,0), 3, pad=" "), " +/- ", str_pad(round(ensemble.stats.sd$n.inst.paleo, 0), 3, pad=" ")),
+                                      rate.paleo.mean = paste0(format(ensemble.stats.means$rate.mean.paleo,digits=3,scientific=T), " +/- ", format(ensemble.stats.sd$rate.mean.paleo, digits=3, scientific=T)),
+                                      rate.paleo.max = paste0(format(ensemble.stats.means$rate.max.paleo,digits=3, scientific=T), " +/- ", format(ensemble.stats.sd$rate.max.paleo, digits=3, scientific=T)),
                                       
-                                      n.modern=paste0(str_pad(round(ecosys.stats.means$n.inst.modrn,0), 2, pad=" "), " +/- ", str_pad(round(ecosys.stats.sd$n.inst.modrn, 0), 2, pad=" ")),
-                                      rate.modern.mean = paste0(format(ecosys.stats.means$rate.mean.modrn,digits=3,scientific=T), " +/- ", format(ecosys.stats.sd$rate.mean.modrn, digits=3, scientific=T)),
-                                      rate.modern.max = paste0(format(ecosys.stats.means$rate.max.modrn,digits=3, scientific=T), " +/- ", format(ecosys.stats.sd$rate.max.modrn, digits=3, scientific=T))
+                                      n.modern=paste0(str_pad(round(ensemble.stats.means$n.inst.modrn,0), 2, pad=" "), " +/- ", str_pad(round(ensemble.stats.sd$n.inst.modrn, 0), 2, pad=" ")),
+                                      rate.modern.mean = paste0(format(ensemble.stats.means$rate.mean.modrn,digits=3,scientific=T), " +/- ", format(ensemble.stats.sd$rate.mean.modrn, digits=3, scientific=T)),
+                                      rate.modern.max = paste0(format(ensemble.stats.means$rate.max.modrn,digits=3, scientific=T), " +/- ", format(ensemble.stats.sd$rate.max.modrn, digits=3, scientific=T))
     )
-    ecosys.stab.summary$var  <- factor(ecosys.stab.summary$var , levels=c("GPP", "NEE", "LAI", "AGB", "Fcomp", "SoilCarb"))
-    ecosys.stab.summary$Site <- factor(ecosys.stab.summary$Site, levels=c("PDL", "PBL", "PUN", "PMB", "PHA", "PHO"))
-    ecosys.stab.summary      <- ecosys.stab.summary[order(ecosys.stab.summary$var),]
-    ecosys.stab.summary
+    ensemble.summary$var  <- factor(ensemble.summary$var , levels=c("GPP", "NEE", "LAI", "AGB", "Fcomp", "SoilCarb"))
+    ensemble.summary      <- ensemble.summary[order(ensemble.summary$var),]
+    ensemble.summary
     
-    write.csv(ecosys.stab.summary, file.path(out.dir, "EcosysSummary_SigChange_AcrossSites.csv"), row.names=F)
+    write.csv(ensemble.summary, file.path(out.dir, "Stability_EnsembleSummary.csv"), row.names=F)
   }
-  # ------------------
-  
-  # ------------------
-  # 4.2 max rate of change pre/post
-  # ------------------
   # ------------------
   
   # ------------------
   # 4.3 model traits as predictors of pre-settlement stability
   # ------------------
+  {
+    library(nlme)
+    
+    # Create a list with informaiton about the different models
+    summary(ecosys.change.mod)
+    unique(ecosys.change.mod$Model)
+    model.char <- list()
+    model.char[["clm.bgc"      ]] <- list(time.step =   30.0, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2"      ), veg.scheme="static", pft.scheme="basic"       )
+    model.char[["clm.cn"       ]] <- list(time.step =   30.0, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2"      ), veg.scheme="static", pft.scheme="basic"       )
+    model.char[["ed2"          ]] <- list(time.step =    7.5, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2"      ), veg.scheme="dynamic", pft.scheme="succession" )
+    model.char[["ed2.lu"       ]] <- list(time.step =    7.5, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2", "LU"), veg.scheme="dynamic", pft.scheme="succession" )
+    model.char[["jules.stat"   ]] <- list(time.step =   60.0, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2"      ), veg.scheme="static" , pft.scheme="basic"      )
+    model.char[["jules.triffid"]] <- list(time.step =   60.0, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2"      ), veg.scheme="dynamic", pft.scheme="basic"      )
+    model.char[["linkages"     ]] <- list(time.step =  5.4e5, drivers=c("tair", "precipf"                                                          ), veg.scheme="dynamic", pft.scheme="species"    )
+    model.char[["lpj.guess"    ]] <- list(time.step = 1440.0, drivers=c("tair", "precipf", "swdown",                                    "CO2",  "N"), veg.scheme="dynamic", pft.scheme="bioclimatic")
+    model.char[["lpj.wsl"      ]] <- list(time.step = 1440.0, drivers=c("tair", "precipf", "swdown", "lwdown",                          "CO2"      ), veg.scheme="dynamic", pft.scheme="bioclimatic")
+    model.char[["sibcasa"      ]] <- list(time.step =     NA, drivers=c("tair", "precipf", "swdown", "lwdown", "qair", "press", "wind", "CO2"      ), veg.scheme="static" , pft.scheme="ecosystem"  )
+    
+    # Load the stability Stats
+    ecosys.stats.site <- read.csv(file.path(out.dir, "Stability_Models_Stats_All.csv"))
+    summary(ecosys.stats.site)
+    
+    # Attaching model information to the stability calcs
+    for(m in unique(ecosys.stats.site$Model)){
+      ecosys.stats.site[ecosys.stats.site$Model==m, "timestep"  ] <- model.char[[m]]$time.step
+      ecosys.stats.site[ecosys.stats.site$Model==m, "veg.scheme"] <- model.char[[m]]$veg.scheme
+      ecosys.stats.site[ecosys.stats.site$Model==m, "pft.scheme"] <- model.char[[m]]$pft.scheme
+      ecosys.stats.site[ecosys.stats.site$Model==m, "drivers"   ] <- length(model.char[[m]]$drivers)
+    }
+    ecosys.stats.site$veg.scheme <- as.factor(ecosys.stats.site$veg.scheme)
+    ecosys.stats.site$pft.scheme <- as.factor(ecosys.stats.site$pft.scheme)
+    summary(ecosys.stats.site)
+    
+    # Using a mixed model to see if certain characteristics predict the mean rate of paleo change
+    # NOTE: -1 assumes default is no change (rate = 0)
+    paleo.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme + (pft.scheme-1) + (var -1) +1, random=list(var=~1, Model=~1, Site=~1), data=ecosys.stats.site[,], na.action=na.omit)
+    anova(paleo.rate.mean) # veg scheme, pft scheme
+    summary(paleo.rate.mean)
+    
+    unique(ecosys.stats.site$var)
+    paleo.gpp.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme + (pft.scheme-1) +1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="GPP",], na.action=na.omit)
+    anova(paleo.gpp.rate.mean) # Veg scheme
+    summary(paleo.gpp.rate.mean) # Static = less stable
+    
+    paleo.nee.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme + (pft.scheme-1) + 1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="NEE",], na.action=na.omit)
+    anova(paleo.nee.rate.mean) # Time step sig
+    summary(paleo.nee.rate.mean) # Fast time step = less stable?
+    
+    paleo.lai.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme + (pft.scheme-1) +1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="LAI",], na.action=na.omit)
+    anova(paleo.lai.rate.mean) # veg, pft scheme
+    summary(paleo.lai.rate.mean) # Static models more stable; succession pft more stable?
+
+    paleo.agb.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme + (pft.scheme-1) +1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="AGB",], na.action=na.omit)
+    anova(paleo.agb.rate.mean) # time step, veg scheme
+    summary(paleo.agb.rate.mean) # Fast time step = less stable?; static veg = more stable
+    
+    paleo.fcomp.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme +( pft.scheme-1) +1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="Fcomp",], na.action=na.omit)
+    anova(paleo.fcomp.rate.mean) # time step
+    summary(paleo.fcomp.rate.mean) # Fast time step = less stable?; static veg = more stable
+    
+    paleo.soilc.rate.mean <- lme(abs(rate.mean.paleo) ~ timestep + veg.scheme + (pft.scheme-1) +1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="SoilCarb",], na.action=na.omit)
+    anova(paleo.soilc.rate.mean) # veg scheme, pft scheme
+    summary(paleo.fcomp.rate.mean) # static veg = more stable
+   
+    
+    # Using a mixed model to see if certain characteristics predict the number of unstable years
+    # NOTE: -1 assumes default is no change (yrs = 0)
+    paleo.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme + var-1, random=list(var=~1, Model=~1, Site=~1), data=ecosys.stats.site[,], na.action=na.omit)
+    anova(paleo.yrs) # time step, Veg scheme, pft scheme
+    summary(paleo.yrs)
+    
+    unique(ecosys.stats.site$var)
+    paleo.gpp.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme-1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="GPP",], na.action=na.omit)
+    anova(paleo.gpp.yrs) # time step, veg scheme
+    summary(paleo.gpp.yrs) # Static = more stable; slow= more stable
+    
+    paleo.nee.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme-1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="NEE",], na.action=na.omit)
+    anova(paleo.nee.yrs) # time step, veg scheme
+    summary(paleo.nee.yrs) # Static = more stable; slow= LESS stable
+    
+    paleo.lai.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme-1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="LAI",], na.action=na.omit)
+    anova(paleo.lai.yrs) # time, veg, pft scheme, 
+    summary(paleo.lai.yrs) # Static = more stable, slow = more stable
+    
+    paleo.agb.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme-1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="AGB",], na.action=na.omit)
+    anova(paleo.agb.yrs) # time step, veg scheme
+    summary(paleo.agb.yrs) # Static = more stable, slow = more stable
+    
+    paleo.fcomp.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme-1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="Fcomp",], na.action=na.omit)
+    anova(paleo.fcomp.yrs) # veg scheme
+    summary(paleo.fcomp.yrs) # static = more stable
+    
+    paleo.soilc.yrs <- lme(n.inst.paleo ~ timestep + veg.scheme + pft.scheme-1, random=list(Model=~1, Site=~1), data=ecosys.stats.site[ecosys.stats.site$var=="SoilCarb",], na.action=na.omit)
+    anova(paleo.soilc.yrs) # time, veg, pft scheme, 
+    summary(paleo.fcomp.yrs) # static = more stable, slow = LESS stable
+    
+  }
   # ------------------
 }
 # ------------------
