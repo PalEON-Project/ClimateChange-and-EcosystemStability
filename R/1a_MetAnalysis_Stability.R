@@ -17,12 +17,15 @@ library(ggplot2); library(gridExtra)
 library(mgcv)
 library(plyr); library(parallel)
 setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability")
-path.gamm.func <- "~/Desktop/R_Functions/"  # Path to github repository of my GAMM helper functions: https://github.com/crollinson/R_Functions.git
-mip.utils <- "~/Dropbox/Research/PalEON_CR/MIP_Utils/" # Path to PalEON MIP Utility repository: https://github.com/PalEON-Project/MIP_Utils.git
+# path.gamm.func <- "~/Desktop/R_Functions/"  # Path to github repository of my GAMM helper functions: https://github.com/crollinson/R_Functions.git
+path.gamm.func <- "~/Desktop/Research/R_Functions/"
+# mip.utils <- "~/Dropbox/Research/PalEON_CR/MIP_Utils/" # Path to PalEON MIP Utility repository: https://github.com/PalEON-Project/MIP_Utils.git
+mip.utils <- "~/Desktop/Research/PalEON_CR/MIP_Utils/" # Path to PalEON MIP Utility repository: https://github.com/PalEON-Project/MIP_Utils.git
 
 raw.dir <- "raw_data"
 out.dir <- "Data/Met"
 fig.out <- "Figures/Met"
+dir.co2 <- "~/Dropbox/PalEON_CR/env_regional/env_paleon/co2/paleon_annual_co2.nc"
 
 if(!dir.exists(out.dir)) dir.create(out.dir)
 if(!dir.exists(fig.out)) dir.create(fig.out)
@@ -31,7 +34,7 @@ if(!dir.exists(fig.out)) dir.create(fig.out)
 # -------------------------------------------
 # Define some useful variables
 # -------------------------------------------
-met.vars <- c("tair", "precipf", "swdown", "lwdown", "psurf", "qair", "wind")
+met.vars <- c("tair", "precipf", "swdown", "lwdown", "psurf", "qair", "wind", "co2")
 hips <- data.frame(Site = c( "PHA",  "PHO",  "PUN",  "PBL",  "PDL",  "PMB"),
                    lat  = c( 42.54,  45.25,  46.22,  46.28,  47.17,  43.61),
                    lon  = c(-72.18, -68.73, -89.53, -94.58, -95.17, -82.83),
@@ -155,22 +158,31 @@ calc.stability <- function(x){
 
 # Adding lat/lon to the hips data frame
 for(v in met.vars){
-  nc.v <- nc_open(file.path(out.dir, paste0(v, ".nc")))
-
   # Running The Derivative calculation on each metvar
   years <- 850:2010
 
-  # Extract the regional data
-  lon <- ncvar_get(nc.v, "lon")
-  lat <- ncvar_get(nc.v, "lat")
-  df.met <- ncvar_get(nc.v, v)
-  dimnames(df.met) <- list(lon=lon, lat=lat, Year=years)
+  if(v=="co2"){
+    nc.v <- nc_open(dir.co2)
+    
+    for(s in unique(met.sites$Site)){
+      met.sites[met.sites$Site==s,v] <- ncvar_get(nc.v, v)
+    }
+  } else {
+    nc.v <- nc_open(file.path(out.dir, paste0(v, ".nc")))
   
-  # Extract the sites; will calc stability separately so we can assess stat. sig.
-  for(s in unique(met.sites$Site)){
-    y.use <- which(lat==mean(met.sites[met.sites$Site==s, "lat2"]))
-    x.use <- which(lon==mean(met.sites[met.sites$Site==s, "lon2"]))
-    met.sites[met.sites$Site==s,v] <- ncvar_get(nc.v, v)[x.use, y.use, ]
+  
+    # Extract the regional data
+    lon <- ncvar_get(nc.v, "lon")
+    lat <- ncvar_get(nc.v, "lat")
+    df.met <- ncvar_get(nc.v, v)
+    dimnames(df.met) <- list(lon=lon, lat=lat, Year=years)
+    
+    # Extract the sites; will calc stability separately so we can assess stat. sig.
+    for(s in unique(met.sites$Site)){
+      y.use <- which(lat==mean(met.sites[met.sites$Site==s, "lat2"]))
+      x.use <- which(lon==mean(met.sites[met.sites$Site==s, "lon2"]))
+      met.sites[met.sites$Site==s,v] <- ncvar_get(nc.v, v)[x.use, y.use, ]
+    }
   }
   
   nc_close(nc.v)
