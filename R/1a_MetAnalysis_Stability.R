@@ -13,7 +13,7 @@ rm(list=ls())
 # Load libraries; set file paths
 # -------------------------------------------
 library(ncdf4)
-library(ggplot2); library(gridExtra)
+library(ggplot2); library(gridExtra); library(scales)
 library(mgcv)
 library(plyr); library(parallel)
 setwd("~/Dropbox/PalEON_CR/PalEON_MIP_Site/Analyses/Change-and-Stability")
@@ -156,6 +156,7 @@ calc.stability <- function(x){
   return(mod.deriv$mean)
 }
 
+
 # Adding lat/lon to the hips data frame
 for(v in met.vars){
   # Running The Derivative calculation on each metvar
@@ -203,8 +204,8 @@ for(v in met.vars){
     }
   }
 
-  deriv.out1 <- mclapply(dat.list1, calc.stability, mc.cores=14)
-  deriv.out2 <- mclapply(dat.list2, calc.stability, mc.cores=14)
+  deriv.out1 <- mclapply(dat.list1, calc.stability, mc.cores=8)
+  deriv.out2 <- mclapply(dat.list2, calc.stability, mc.cores=8)
   
   # Plugging things back into the appropriate array
   df.deriv1 <- array(dim=c(dim(df.met)[1:2],length(which(years<1850))))
@@ -224,8 +225,14 @@ for(v in met.vars){
   }
 
   # Finding and graphing the mean derivative
-  deriv.mean1 <- apply(abs(df.deriv1), c(1,2), FUN=mean)
-  deriv.mean2 <- apply(abs(df.deriv2), c(1,2), FUN=mean)
+  deriv.mean1 <- apply(df.deriv1, c(1,2), FUN=mean)
+  deriv.mean2 <- apply(df.deriv2, c(1,2), FUN=mean)
+  deriv.abs1 <- apply(abs(df.deriv1), c(1,2), FUN=mean)
+  deriv.abs2 <- apply(abs(df.deriv2), c(1,2), FUN=mean)
+  deriv.max1 <- apply(df.deriv1, c(1,2), FUN=function(x){x[which(abs(x)==max(abs(x)))[1]]})
+  deriv.max2 <- apply(df.deriv2, c(1,2), FUN=function(x){x[which(abs(x) == max(abs(x)))[1]]})
+  year.max1  <- apply(df.deriv1, c(1,2), FUN=function(x){years[years<1850][which(abs(x) == max(abs(x)))[1]]})
+  year.max2  <- apply(df.deriv2, c(1,2), FUN=function(x){years[years>1900][which(abs(x) == max(abs(x)))[1]]})
   abs.mean1   <- apply(df.met[,,which(years<1850)], c(1,2), FUN=mean)
   abs.mean2   <- apply(df.met[,,which(years>1900)], c(1,2), FUN=mean)
   summary(deriv.mean1)
@@ -234,7 +241,13 @@ for(v in met.vars){
   names(deriv.stack) <- c("deriv.pre1850", "lat")
   deriv.stack$lon <- as.numeric(paste(dimnames(df.deriv1)[[1]]))
   deriv.stack$lat <- as.numeric(substr(deriv.stack$lat, 2, nchar(paste(deriv.stack$lat))))
-  deriv.stack$deriv.post1900 <- stack(data.frame(deriv.mean2))[,1]    
+  deriv.stack$deriv.post1900 <- stack(data.frame(deriv.mean2))[,1]
+  deriv.stack$deriv.abs.pre1850  <- stack(data.frame(deriv.abs1))[,1]
+  deriv.stack$deriv.abs.post1900 <- stack(data.frame(deriv.abs2))[,1]
+  deriv.stack$deriv.max.pre1850  <- stack(data.frame(deriv.max1))[,1]
+  deriv.stack$deriv.max.post1900 <- stack(data.frame(deriv.max2))[,1]
+  deriv.stack$year.max.pre1850  <- stack(data.frame(year.max1))[,1]
+  deriv.stack$year.max.post1900 <- stack(data.frame(year.max2))[,1]
   deriv.stack$mean.pre1850   <- stack(data.frame(abs.mean1))[,1]    
   deriv.stack$mean.post1900  <- stack(data.frame(abs.mean2))[,1]    
   summary(deriv.stack)
@@ -243,63 +256,172 @@ for(v in met.vars){
   # ---------------------------
   # Graphing the met var & change
   # ---------------------------
-  # ------------
-  # Means
-  # ------------
-  mean1 <- ggplot(data=deriv.stack) +
-    geom_raster(aes(x=lon, y=lat, fill=mean.pre1850)) +
-    geom_point(data=hips, aes(x=lon, y=lat), color="red") +
-    scale_x_continuous(expand=c(0,0)) +
-    scale_y_continuous(expand=c(0,0)) +
-    scale_fill_gradient(name=paste0(v), limits=range(deriv.stack[,c("mean.pre1850", "mean.post1900")], na.rm=T)) +
-    ggtitle(paste0(v, " pre-1850 mean")) +
-    coord_equal(ratio=1)
-  mean2 <- ggplot(data=deriv.stack) +
-    geom_raster(aes(x=lon, y=lat, fill=mean.post1900)) +
-    geom_point(data=hips, aes(x=lon, y=lat), color="red") +
-    scale_x_continuous(expand=c(0,0)) +
-    scale_y_continuous(expand=c(0,0)) +
-    scale_fill_gradient(name=paste0(v), limits=range(deriv.stack[,c("mean.pre1850", "mean.post1900")], na.rm=T)) +
-    ggtitle(paste0(v, " post-1900 mean")) +
-    coord_equal(ratio=1)
-
-  png(file.path(fig.out, paste0(v, "_means.png")), height=8, width=11, units="in", res=200)
-  grid.arrange(mean1, mean2, ncol=1)
-  dev.off()
-  # ------------
+  if(v!="co2"){
+    # ------------
+    # Means
+    # ------------
+    mean1 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=mean.pre1850)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="red") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      scale_fill_gradient(name=paste0(v), limits=range(deriv.stack[,c("mean.pre1850", "mean.post1900")], na.rm=T)) +
+      ggtitle(paste0(v, " pre-1850 mean")) +
+      coord_equal(ratio=1)
+    mean2 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=mean.post1900)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="red") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      scale_fill_gradient(name=paste0(v), limits=range(deriv.stack[,c("mean.pre1850", "mean.post1900")], na.rm=T)) +
+      ggtitle(paste0(v, " post-1900 mean")) +
+      coord_equal(ratio=1)
   
-  # ------------
-  # Rates of change
-  # ------------
-  # ggplot(data=deriv.stack) +
-  #   geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
-  #   geom_point(data=hips, aes(x=lon, y=lat), color="red") +
-  #   scale_x_continuous(expand=c(0,0)) +
-  #   scale_y_continuous(expand=c(0,0)) +
-  #   scale_fill_gradient(name=paste0(v, " deriv")) +
-  #   ggtitle(paste0(v, "Mean Rate of Change (absolute), pre-1850 (free scale)")) +
-  #   coord_equal(ratio=1)
-  deriv1 <- ggplot(data=deriv.stack) +
-    geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
-    geom_point(data=hips, aes(x=lon, y=lat), color="red") +
-    scale_x_continuous(expand=c(0,0)) +
-    scale_y_continuous(expand=c(0,0)) +
-    scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
-    ggtitle(paste0(v, " -- Mean Rate of Change (absolute), pre-1850")) +
-    coord_equal(ratio=1)
-  deriv2 <- ggplot(data=deriv.stack) +
-    geom_raster(aes(x=lon, y=lat, fill=deriv.post1900)) +
-    geom_point(data=hips, aes(x=lon, y=lat), color="red") +
-    scale_x_continuous(expand=c(0,0)) +
-    scale_y_continuous(expand=c(0,0)) +
-    scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
-    ggtitle(paste0(v, " -- Mean Rate of Change (absolute), Post-1900")) +
-    coord_equal(ratio=1)
-
-  png(file.path(fig.out, paste0(v, "_derivs.png")), height=8, width=11, units="in", res=200)
-  grid.arrange(deriv1, deriv2, ncol=1)
-  dev.off()
-  # ------------
+    png(file.path(fig.out, paste0(v, "_means.png")), height=8, width=11, units="in", res=200)
+    grid.arrange(mean1, mean2, ncol=1)
+    dev.off()
+    # ------------
+    
+    # ------------
+    # Rates of change - means
+    # ------------
+    # ggplot(data=deriv.stack) +
+    #   geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
+    #   geom_point(data=hips, aes(x=lon, y=lat), color="red") +
+    #   scale_x_continuous(expand=c(0,0)) +
+    #   scale_y_continuous(expand=c(0,0)) +
+    #   scale_fill_gradient(name=paste0(v, " deriv")) +
+    #   ggtitle(paste0(v, "Mean Rate of Change (absolute), pre-1850 (free scale)")) +
+    #   coord_equal(ratio=1)
+    deriv1 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      scale_fill_gradient2(name=paste0("change yr-1"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Mean Rate of Change, pre-1850")) +
+      coord_equal(ratio=1)
+    deriv2 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=deriv.post1900)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      scale_fill_gradient2(name=paste0("change yr-1"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Mean Rate of Change, Post-1900")) +
+      coord_equal(ratio=1)
+  
+    png(file.path(fig.out, paste0(v, "_derivs_means.png")), height=8, width=11, units="in", res=200)
+    grid.arrange(deriv1, deriv2, ncol=1)
+    dev.off()
+    # ------------
+    
+    # ------------
+    # Rates of change - absolute
+    # ------------
+    # ggplot(data=deriv.stack) +
+    #   geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
+    #   geom_point(data=hips, aes(x=lon, y=lat), color="red") +
+    #   scale_x_continuous(expand=c(0,0)) +
+    #   scale_y_continuous(expand=c(0,0)) +
+    #   scale_fill_gradient(name=paste0(v, " deriv")) +
+    #   ggtitle(paste0(v, "Mean Rate of Change (absolute), pre-1850 (free scale)")) +
+    #   coord_equal(ratio=1)
+    deriv1 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=deriv.abs.pre1850)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      scale_fill_gradient2(name=paste0("abs(change) yr-1"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Mean Absolute Rate of Change, pre-1850")) +
+      coord_equal(ratio=1)
+    deriv2 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=deriv.abs.post1900)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      scale_fill_gradient2(name=paste0("abs(change) yr-1"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Mean Absolute Rate of Change, Post-1900")) +
+      coord_equal(ratio=1)
+    
+    png(file.path(fig.out, paste0(v, "_derivs_abs.png")), height=8, width=11, units="in", res=200)
+    grid.arrange(deriv1, deriv2, ncol=1)
+    dev.off()
+    # ------------
+    
+    # ------------
+    # Rates of change - max rate
+    # ------------
+    # ggplot(data=deriv.stack) +
+    #   geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
+    #   geom_point(data=hips, aes(x=lon, y=lat), color="red") +
+    #   scale_x_continuous(expand=c(0,0)) +
+    #   scale_y_continuous(expand=c(0,0)) +
+    #   scale_fill_gradient(name=paste0(v, " deriv")) +
+    #   ggtitle(paste0(v, "Mean Rate of Change (absolute), pre-1850 (free scale)")) +
+    #   coord_equal(ratio=1)
+    deriv1 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=deriv.max.pre1850)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      scale_fill_gradient2(name=paste0("max(change) yr-1"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Maximum Rate of Change, pre-1850")) +
+      coord_equal(ratio=1)
+    deriv2 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=deriv.max.post1900)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      scale_fill_gradient2(name=paste0("max(change) yr-1"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Maximum Rate of Change, Post-1900")) +
+      coord_equal(ratio=1)
+    
+    png(file.path(fig.out, paste0(v, "_derivs_max.png")), height=8, width=11, units="in", res=200)
+    grid.arrange(deriv1, deriv2, ncol=1)
+    dev.off()
+    # ------------
+    
+    # ------------
+    # Rates of change - Year of max change
+    # ------------
+    # ggplot(data=deriv.stack) +
+    #   geom_raster(aes(x=lon, y=lat, fill=deriv.pre1850)) +
+    #   geom_point(data=hips, aes(x=lon, y=lat), color="red") +
+    #   scale_x_continuous(expand=c(0,0)) +
+    #   scale_y_continuous(expand=c(0,0)) +
+    #   scale_fill_gradient(name=paste0(v, " deriv")) +
+    #   ggtitle(paste0(v, "Mean Rate of Change (absolute), pre-1850 (free scale)")) +
+    #   coord_equal(ratio=1)
+    deriv1 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=year.max.pre1850)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      # scale_fill_gradient2(name=paste0("year"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Year of Maximum Rate of Change, pre-1850")) +
+      coord_equal(ratio=1)
+    deriv2 <- ggplot(data=deriv.stack) +
+      geom_raster(aes(x=lon, y=lat, fill=year.max.post1900)) +
+      geom_point(data=hips, aes(x=lon, y=lat), color="black") +
+      scale_x_continuous(expand=c(0,0)) +
+      scale_y_continuous(expand=c(0,0)) +
+      # scale_fill_gradient(name=paste0(v, " deriv"), limits=range(deriv.stack[,c("deriv.pre1850", "deriv.post1900")], na.rm=T)) +
+      # scale_fill_gradient2(name=paste0("year"), low=muted("blue"), mid="white", high=muted("red"), midpoint=0) +
+      ggtitle(paste0(v, " -- Year of Maximum Rate of Change, Post-1900")) +
+      coord_equal(ratio=1)
+    
+    png(file.path(fig.out, paste0(v, "_derivs_max_year.png")), height=8, width=11, units="in", res=200)
+    grid.arrange(deriv1, deriv2, ncol=1)
+    dev.off()
+    # ------------
+  }
   # ---------------------------
     
   # ---------------------------
